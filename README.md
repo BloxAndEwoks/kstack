@@ -1,105 +1,69 @@
 # kstack
 
-A portable build discipline, earned in production round by round and distilled into a tool.
-One command — `/kstack-init` — installs it into a repo by **generating** that repo's own
-procedure file, docs spine, and finding ledger. Nothing is ever copied between repos — kstack
-is self-contained, and so is every repo it initializes. The reasoning behind every rule lives
-in `PHILOSOPHY.md`.
+The bookended PR loop, portable to any agent host that reads `SKILL.md`.
 
-## The shape of the discipline
+**`task → worktree → commits → PR → normalized review → merge-ready handoff`**
 
-Per unit of work (a unit = the body of work answering one named goal, one to five commits):
+Devin's cloud sessions work this way: an isolated environment, a PR as the output
+artifact, an independent review pass, and the owner merges. This plugin reproduces
+that loop as skills + an MCP server, so the same discipline runs in Devin CLI,
+Devin Desktop, Claude Code, Cursor, or any agent that speaks plugins and MCP.
 
-1. **Premortem** before building — assume it shipped and failed, work backward; cluster the
-   scenarios into classes; a facts-before-verbs row per new fact.
-2. **Build test-first** against those classes.
-3. **Simplify** after building — four lenses: reuse, simplification, efficiency, altitude.
-4. **Verify, then certify** — 4a: a ledger-driven verification sweep on EVERY unit; 4b: an
-   independent external model certifies gated units (money, lifecycle, customer-facing,
-   custody, migrations — unsure ⇒ gated).
-5. **Triage before remediating** — cluster by mechanism; missing GUARD / missing FACT / wrong
-   MODEL; fix the class, never one guard per finding.
-5b. **Close the unit** — distill the round's findings into the finding ledger by Bennett's
-   razor (the weakest statement still sufficient); promote enforcement media; the loop
-   self-checks for anchoring.
-6. **Drive the changed user-facing behavior** as a user experiences it.
-7. **Commit** as the system of record.
+## What it is not
 
-## The three-layer law
+It is not a process framework. No ledger, no mandatory subagent fan-out, no
+reflection step between the work and the PR. The loop is thin on purpose — the
+previous incarnation of this idea grew recursive meta-machinery and spiraled.
+Depth is opt-in and lives in the repo's own rules.
 
-- **Method is carried.** The skills and templates in this repo are project-agnostic and travel
-  as-is.
-- **Instantiation is generated.** A repo's AGENTS.md — its commands, machine constraints, gated
-  scopes — is written by `/kstack-init` from *that repo's* discovered facts, never copied from
-  another repo.
-- **Evidence is earned.** The generated finding ledger ships EMPTY — kstack carries the
-  mechanism (the razor, the regeneration forks, the media ranking); a repo's lessons are minted
-  at its own unit closes, from its own findings, and are never seeded from another repo. Until
-  lessons exist, the sweep falls back to `/adversarial-audit`'s generic falsification classes
-  (the young-ledger bootstrap in `PHILOSOPHY.md`).
+## Install
 
-## Layout
-
-```
-PHILOSOPHY.md         why every rule is the way it is — read this first
-skills/
-  kstack-init/        the installer: interview wave → owner Q&A → generate
-  premortem/          step 1 — prospective-hindsight failure hunt (engineering mode included)
-  simplify/           step 3 — the four cleanup lenses (self-contained; no harness built-in needed)
-  verify-sweep/       step 4a — the ledger-driven per-unit verification sweep
-  external-review/    step 4b — the independent Codex gate (SKILL.md + external-review.sh)
-  close-unit/         step 5b — the self-improvement close (razor, forks, loop self-check)
-  adversarial-audit/  the generic falsification catalogue — the sweep's floor while the
-                      ledger is young, and standalone verification for non-kstack repos
-  create-verification-skill/  generates verify-<project>: the consumer-surface feature map +
-                      driver (step 6's mechanism); every generated skill carries its own
-                      MAINTAIN mode, so maintenance needs no second generator
-templates/
-  AGENTS.template.md            the procedure file kstack-init fills per-repo
-  finding-ledger.template.md    the ledger mechanism — ships with an EMPTY lesson list
-  docs/                         docs-spine skeletons: 000-index (with the band map),
-                                001-current-state, and the in-band doc-type templates
-                                (ADR, PRD, probe) seeded into each cadence band
+```bash
+# Devin CLI / Desktop
+devin plugins install BloxAndEwoks/kstack
+# or, for authoring, a local path:
+devin plugins install ~/Documents/kstack
 ```
 
-## Installing
+Agent Plugins 1.0.0 root manifest (`plugin.json`) is present, so any spec-compliant
+host loads it the same way. `.devin-plugin/` and `.claude-plugin/` manifests cover
+the native formats.
 
-**As a Claude Code plugin:** add this repo as a plugin (skills resolve as `/kstack:<name>`,
-e.g. `/kstack:kstack-init`).
+## The surface
 
-**As user-level skills:** copy `skills/*` into `~/.claude/skills/` (skills resolve as
-`/<name>`, e.g. `/kstack-init`).
+| piece | what it does |
+|---|---|
+| `/kstack:loop` | Router — captures BASE, opens the worktree, matches a playbook |
+| `loop/playbooks/` | `feature` `bugfix` `perf` `docs` `chore` `investigate` `stack` |
+| `/kstack:commit` | Convention-matched commits |
+| `/kstack:open-pr` `/kstack:update-pr` | PR open/update with the Summary + Verification body contract |
+| `/kstack:review` | The independent review pass — Devin Review's taxonomy locally |
+| `/kstack:review-loop` | Normalizes every review source into findings; dispositions each |
+| `/kstack:fix-ci` | Failed-check triage: real failure vs infra flake vs stale |
+| `/kstack:sync` `/kstack:sync-upstream` | Upstream sync/publish; upstream-wins rebases |
+| `/kstack:merge` `/kstack:land` | Local merge; merge-readiness gate + owner handoff |
+| `/kstack:run-commands` | Session run-command setup (`tasks.json` + `worktreeCreated`) |
+| `/kstack:learn` | Durable learning capture to the repo's rules/docs/skills |
+| `agents/reviewer` | Non-author reviewer subagent profile (local hosts) |
+| `kstack` MCP server | `session_context` + the findings store for any harness |
 
-**In Cursor:** the same checkout carries `.cursor-plugin/plugin.json`, so it installs as a
-Cursor plugin with the identical skills.
+## The QA layer
 
-**In non-Claude-Code environments** (Cursor, Codex, any agent that reads markdown): the skills
-are plain markdown procedures — point the agent at `skills/<name>/SKILL.md` and it follows the
-steps directly. `skills/simplify/SKILL.md` is deliberately self-contained for exactly this
-case (in Claude Code it shadows a built-in; elsewhere it IS the pass). The generated AGENTS.md
-in the target repo is the universal entry point — Cursor and Codex read it natively.
+The spine is the **finding schema** (`skills/review-loop/references/finding-schema.md`)
+— Devin Review's protocol made portable: kinds `bug`/`security`/`flag`, severities
+per kind, `confidence`, `cwe`, `based_on_repo_rules`, and terminal dispositions
+(`fixed`/`refuted`/`deferred`/`accepted-risk`/`dismissed`). Adapters normalize
+Devin Review markers, CodeRabbit, and raw comments into it. Every finding gets a
+disposition with evidence posted on its own thread; nothing pending at `land`.
 
-The external gate needs the Codex CLI installed and logged in (`brew install codex`,
-`codex login`). Where it is unavailable, `/kstack-init` records the gap in the generated
-AGENTS.md rather than letting it be silently skipped.
+## The MCP server
 
-## Quick start
+`mcp/review-state.mjs` is a zero-dependency Node stdio server. Declared in
+`.mcp.json` (Agent Plugins) — hosts that support plugin MCP servers get:
 
-```
-cd your-repo
-/kstack-init          # (or /kstack:kstack-init as a plugin)
-```
+- `session_context` — repo/branch/BASE/PR ground truth in one call
+- `finding_add` / `finding_list` / `finding_dispose` / `review_state` — the
+  normalized findings store at `.kstack/review/<key>.json` in the consuming repo
 
-On an existing repo it runs a read-only interview wave over the codebase, asks the owner only
-what code cannot answer, then generates `AGENTS.md`, `docs/`, the finding ledger, and
-`scripts/external-review.sh`. On a greenfield repo it is a short Q&A plus defaults. The first
-real unit you build is the init's acceptance test — and its close mints the repo's first
-ledger lessons.
-
-## Provenance
-
-The verification-skill discipline descends from pstack's create/maintain-verification-skill
-pair (MIT, Lauren Tan — github.com/cursor/plugins), hardened by a production port before it
-landed here; the feature-map example under
-`skills/create-verification-skill/references/` is adapted from pstack's. The rest of the
-discipline was earned in production and distilled by the rules in `PHILOSOPHY.md`.
+Hosts without plugin MCP: the skills fall back to `gh` + the same store files —
+the store is plain JSON, no tool required.
