@@ -62,8 +62,15 @@ disposition with evidence posted on its own thread; nothing pending at `land`.
 `.mcp.json` (Agent Plugins) — hosts that support plugin MCP servers get:
 
 - `session_context` — repo/branch/BASE/PR ground truth in one call
+- `doctor` — wiring check (node, git, gh, gh auth) with fix guidance
 - `finding_add` / `finding_list` / `finding_dispose` / `review_state` — the
   normalized findings store at `.kstack/review/<key>.json` in the consuming repo
+- `comments_pull` — fetch + normalize every PR comment through the adapters *in
+  code*, folding `✅ Resolved` replies into dispositions
+- `comment_add` / `comment_reply` / `comment_resolve` — the inline-comment
+  channel (the `addComment`/`listComments`/`resolveComments` equivalent),
+  provisioned over `gh`
 
 Hosts without plugin MCP: the skills fall back to `gh` + the same store files —
-the store is plain JSON, no tool required.
+the store is plain JSON, no tool required. `node mcp/review-state.mjs --doctor`
+reports the wiring on any host.

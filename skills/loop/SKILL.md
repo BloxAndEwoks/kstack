@@ -22,7 +22,10 @@ git branch --show-current              # current branch
 git status --porcelain                 # dirty state — uncommitted work is a fact, not a detail
 ```
 
-If the `kstack` MCP server is connected, `session_context` returns all of this in one call.
+If the `kstack` MCP server is connected, `session_context` returns all of this in
+one call and `doctor` reports the wiring (node / git / gh / gh auth) — anything
+missing gets fixed before the unit starts, because the loop's later stages depend
+on it.
 
 ## Step 1 — isolate
 

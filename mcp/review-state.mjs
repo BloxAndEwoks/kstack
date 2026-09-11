@@ -91,6 +91,7 @@ const SEVERITIES = {
   security: ["critical", "high", "medium", "low"],
   flag: ["investigate", "note"],
 };
+const MECHANISMS = ["wrong-model", "missing-fact", "missing-guard"];
 const DISPOSITIONS = ["pending", "fixed", "refuted", "deferred", "accepted-risk", "dismissed"];
 
 function validateFinding(f) {
@@ -100,6 +101,8 @@ function validateFinding(f) {
     errors.push(`severity "${f.severity}" invalid for kind "${f.kind}"`);
   if (!f.path) errors.push("path required");
   if (!f.title) errors.push("title required");
+  if (f.mechanism && !MECHANISMS.includes(f.mechanism))
+    errors.push(`mechanism must be one of ${MECHANISMS.join(", ")}`);
   return errors;
 }
 
@@ -125,6 +128,7 @@ function addFinding(key, f) {
     title: f.title,
     body: f.body ?? "",
     remediation: f.remediation ?? null,
+    mechanism: f.mechanism ?? null,
     thread_id: f.thread_id ?? null,
     disposition: "pending",
     disposition_detail: null,
@@ -168,6 +172,181 @@ function reviewState(key) {
   };
 }
 
+// ---------- PR comment channel + normalization (the adapters, in code) ----------
+//
+// These four tools are the addComment/listComments/resolveComments/
+// deleteComments equivalent, provisioned over `gh`. comments_pull both fetches
+// and normalizes — the adapter rules run here as code, not as instructed prose.
+
+function repoSlug() {
+  const url = git(["remote", "get-url", "origin"]) ?? "";
+  const m = url.match(/[:/]([^/:]+\/[^/]+?)(?:\.git)?$/);
+  if (!m) throw new Error("cannot determine owner/repo from origin remote");
+  return m[1];
+}
+
+function currentPrNumber() {
+  const out = gh(["pr", "view", "--json", "number"]);
+  if (!out) return null;
+  try { return JSON.parse(out).number; } catch { return null; }
+}
+
+const EMOJI_SEV = {
+  "🔴": { kind: "bug", severity: "severe" },
+  "🟡": { kind: "bug", severity: "non-severe" },
+  "🟥": { kind: "security", severity: "high" },
+  "🟨": { kind: "security", severity: "medium" },
+  "🔵": { kind: "flag", severity: "note" },
+};
+
+const CODERABBIT_SEV = [
+  [/potential issue/i, { kind: "bug", severity: "non-severe" }],
+  [/refactor suggestion/i, { kind: "flag", severity: "investigate" }],
+  [/nitpick|💡|🧹/i, { kind: "flag", severity: "note" }],
+];
+
+function normalizeComment(c, source) {
+  // Devin Review / kstack markers
+  const marker = c.body?.match(/<!--\s*(?:devin-review-comment|kstack-finding)\s+(\{[^}]*\})\s*-->/);
+  let meta = {};
+  if (marker) { try { meta = JSON.parse(marker[1]); } catch { meta = {}; } }
+
+  const head = (c.body ?? "").replace(/<!--[\s\S]*?-->/, "").trim();
+  const emoji = Object.keys(EMOJI_SEV).find(e => head.startsWith(e));
+  const titleM = head.match(/\*\*([^*]+)\*\*/);
+
+  let kind = meta.kind, severity = null, confidence = "medium";
+  if (emoji) ({ kind, severity } = { kind: meta.kind ?? EMOJI_SEV[emoji].kind, severity: EMOJI_SEV[emoji].severity });
+  if (!severity) {
+    const cr = CODERABBIT_SEV.find(([re]) => re.test(c.body ?? ""));
+    if (cr) { kind = kind ?? cr[1].kind; severity = cr[1].severity; }
+  }
+  if (source === "human") { kind = kind ?? "flag"; severity = severity ?? "investigate"; }
+  kind = kind ?? "bug";
+  severity = severity ?? (kind === "bug" ? "non-severe" : kind === "security" ? "medium" : "investigate");
+
+  const cweM = (c.body ?? "").match(/CWE-\d+/);
+  return {
+    id: meta.id ?? `${source === "human" ? "HUMAN" : "RAW"}_${c.id}`,
+    source,
+    kind, severity, confidence,
+    cwe: cweM ? cweM[0] : null,
+    category: null,
+    based_on_repo_rules: meta.based_on_repo_rules ?? false,
+    path: meta.file_path ?? c.path ?? "(pr-level)",
+    start_line: meta.start_line ?? c.start_line ?? c.line ?? null,
+    end_line: meta.end_line ?? c.line ?? null,
+    side: meta.side ?? c.side ?? "RIGHT",
+    title: titleM ? titleM[1].trim() : head.split("\n")[0].slice(0, 120),
+    body: head,
+    remediation: null,
+    thread_id: String(c.id),
+    in_reply_to: c.in_reply_to_id ?? null,
+    author: c.user?.login ?? "unknown",
+    disposition: "pending",
+    disposition_detail: null,
+    mechanism: null,
+    created_at: c.created_at ?? new Date().toISOString(),
+    resolved_at: null,
+  };
+}
+
+function commentsPull(key, pr) {
+  const slug = repoSlug();
+  const n = pr ?? currentPrNumber();
+  if (!n) throw new Error("no PR for the current branch; pass pr explicitly");
+  const inline = JSON.parse(gh(["api", `repos/${slug}/pulls/${n}/comments`, "--paginate"]) ?? "[]");
+  const topLevel = JSON.parse(gh(["api", `repos/${slug}/issues/${n}/comments`, "--paginate"]) ?? "[]");
+
+  const store = loadStore(key ?? String(n));
+  const byId = new Map(store.findings.map(f => [f.id, f]));
+  let added = 0, updated = 0;
+
+  const humanish = (login) => !/\[bot\]$|bot$/i.test(login) ? "human" : login;
+
+  for (const c of [...inline, ...topLevel]) {
+    const body = c.body ?? "";
+    // resolution replies: "✅ **Resolved**:" from a review bot disposes the parent
+    const replyTo = c.in_reply_to_id;
+    if (replyTo && /✅\s*\*\*Resolved\*\*/.test(body)) {
+      const parent = [...byId.values()].find(f => f.thread_id === String(replyTo));
+      if (parent && parent.disposition === "pending") {
+        parent.disposition = "fixed";
+        parent.disposition_detail = body.replace(/✅\s*\*\*Resolved\*\*:?\s*/, "").slice(0, 300);
+        parent.resolved_at = new Date().toISOString();
+        updated++;
+      }
+      continue;
+    }
+    const f = normalizeComment(c, humanish(c.user?.login));
+    const existing = byId.get(f.id);
+    if (!existing) {
+      store.findings.push(f); byId.set(f.id, f); added++;
+    } else {
+      // re-review: same id reappears — refresh body/anchor, keep disposition
+      Object.assign(existing, { body: f.body, title: f.title, start_line: f.start_line, end_line: f.end_line });
+      updated++;
+    }
+  }
+  saveStore(store.key, store);
+  return { pr: n, total: store.findings.length, added, updated, pending: store.findings.filter(f => f.disposition === "pending").length };
+}
+
+function commentAdd(pr, f) {
+  const slug = repoSlug();
+  const n = pr ?? currentPrNumber();
+  if (!n) throw new Error("no PR for the current branch; pass pr explicitly");
+  const headSha = gh(["pr", "view", String(n), "--json", "headRefOid", "--jq", ".headRefOid"]);
+  const marker = { id: f.id, kind: f.kind, severity: f.severity, confidence: f.confidence ?? "medium", based_on_repo_rules: f.based_on_repo_rules ?? false, file_path: f.path, start_line: f.start_line, end_line: f.end_line ?? f.start_line, side: f.side ?? "RIGHT" };
+  const emoji = { bug: { severe: "🔴", "non-severe": "🟡" }, security: { critical: "🟥", high: "🟥", medium: "🟨", low: "🔵" }, flag: { investigate: "🔵", note: "🔵" } }[f.kind]?.[f.severity] ?? "🔵";
+  const body = `<!-- kstack-finding ${JSON.stringify(marker)} -->\n\n${emoji} **${f.title}**\n\n${f.body ?? ""}${f.remediation ? `\n\nSuggested fix: ${f.remediation}` : ""}`;
+  const payload = { body, commit_id: headSha, path: f.path, side: f.side ?? "RIGHT" };
+  if (f.start_line && f.end_line && f.end_line !== f.start_line) {
+    payload.start_line = f.start_line; payload.line = f.end_line;
+    if (f.side) payload.start_side = f.side;
+  } else {
+    payload.line = f.end_line ?? f.start_line;
+  }
+  const tmp = `${process.env.TMPDIR ?? "/tmp"}kstack-comment-${Date.now()}.json`;
+  writeFileSync(tmp, JSON.stringify(payload));
+  const out = gh(["api", `repos/${slug}/pulls/${n}/comments`, "-X", "POST", "--input", tmp]);
+  if (!out) throw new Error("gh api failed posting the comment");
+  const posted = JSON.parse(out);
+  return { id: f.id, comment_id: posted.id, html_url: posted.html_url };
+}
+
+function commentReply(commentId, body) {
+  const slug = repoSlug();
+  const tmp = `${process.env.TMPDIR ?? "/tmp"}kstack-reply-${Date.now()}.json`;
+  writeFileSync(tmp, JSON.stringify({ body }));
+  const out = gh(["api", `repos/${slug}/pulls/comments/${commentId}/replies`, "-X", "POST", "--input", tmp]);
+  if (!out) throw new Error("gh api failed posting the reply");
+  const posted = JSON.parse(out);
+  return { comment_id: posted.id, html_url: posted.html_url };
+}
+
+function commentResolve(threadId) {
+  const out = gh(["api", "graphql", "-f", `query=mutation { resolveReviewThread(input:{threadId:"${threadId}"}) { thread { isResolved } } }`]);
+  if (!out) throw new Error("gh api graphql failed — resolveReviewThread needs a GraphQL thread id (PRRT_…), not a comment id");
+  return JSON.parse(out);
+}
+
+function doctor() {
+  const checks = {
+    node: process.version,
+    git: git(["--version"]),
+    gh_cli: gh(["--version"])?.split("\n")[0] ?? null,
+    gh_auth: null,
+    repo: git(["rev-parse", "--show-toplevel"]),
+    gh_pr_view: null,
+  };
+  const auth = gh(["auth", "status"]);
+  checks.gh_auth = auth ? "ok" : (() => { try { execFileSync("gh", ["auth", "status"], { stdio: ["ignore", "pipe", "pipe"] }); return "ok"; } catch { return "missing"; } })();
+  checks.gh_pr_view = checks.repo && checks.gh_auth === "ok" ? "ok" : "unverified";
+  const missing = Object.entries(checks).filter(([k, v]) => v === null || v === "missing").map(([k]) => k);
+  return { ok: missing.length === 0, checks, missing, guidance: missing.length ? "install/authenticate the missing pieces; gh CLI is required for PR I/O (brew install gh && gh auth login)" : "fully wired" };
+}
+
 // ---------- MCP tool surface ----------
 
 const TOOLS = [
@@ -188,6 +367,7 @@ const TOOLS = [
         severity: { type: "string", description: "bug: severe|non-severe; security: critical|high|medium|low; flag: investigate|note" },
         source: { type: "string" }, confidence: { type: "string", enum: ["high", "medium", "low"] },
         cwe: { type: "string" }, category: { type: "string" },
+        mechanism: { type: "string", enum: MECHANISMS, description: "wrong-model (redesign) | missing-fact (carry the fact upstream) | missing-guard (local fix correct)" },
         based_on_repo_rules: { type: "boolean" },
         path: { type: "string" }, start_line: { type: "number" }, end_line: { type: "number" },
         side: { type: "string", enum: ["RIGHT", "LEFT"] },
@@ -229,6 +409,55 @@ const TOOLS = [
     description: "Summary of the review store for a key: totals, counts by kind/disposition, open blocking findings, suggested verdict (PASS / PASS+NOTES / FAIL).",
     inputSchema: { type: "object", required: ["key"], properties: { key: { type: "string" } }, additionalProperties: false },
   },
+  {
+    name: "comments_pull",
+    description: "Fetch every comment on a PR (inline + top-level), normalize them into findings via the built-in adapters (Devin Review markers, CodeRabbit severity markers, raw comments), upsert into the store, and fold ✅ Resolved replies into dispositions. The normalize step runs as code here — not as instructed judgment.",
+    inputSchema: {
+      type: "object",
+      properties: { key: { type: "string", description: "defaults to the PR number" }, pr: { type: "number", description: "defaults to the current branch's PR" } },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "comment_add",
+    description: "Post a normalized finding as an inline PR comment with the kstack-finding marker (round-trips through comments_pull). Anchored to path + line range + side.",
+    inputSchema: {
+      type: "object",
+      required: ["kind", "severity", "path", "title", "start_line"],
+      properties: {
+        pr: { type: "number" }, kind: { type: "string", enum: KINDS }, severity: { type: "string" },
+        path: { type: "string" }, start_line: { type: "number" }, end_line: { type: "number" },
+        side: { type: "string", enum: ["RIGHT", "LEFT"] }, title: { type: "string" },
+        body: { type: "string" }, remediation: { type: "string" },
+        confidence: { type: "string", enum: ["high", "medium", "low"] },
+        based_on_repo_rules: { type: "boolean" }, id: { type: "string" },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "comment_reply",
+    description: "Reply on a finding's own comment thread — carries the disposition and its evidence (the fix SHA, the refutation, the deferral trigger).",
+    inputSchema: {
+      type: "object", required: ["comment_id", "body"],
+      properties: { comment_id: { type: "string" }, body: { type: "string" } },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "comment_resolve",
+    description: "Resolve a PR review thread via GraphQL. Takes the thread id (PRRT_…), not the comment id.",
+    inputSchema: {
+      type: "object", required: ["thread_id"],
+      properties: { thread_id: { type: "string" } },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "doctor",
+    description: "Check the wiring: node, git, gh CLI, gh auth, repo context. Run first in any session that will touch a PR — reports exactly what is missing and how to fix it.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
 ];
 
 function textResult(data) {
@@ -249,6 +478,11 @@ function callTool(name, args) {
     }
     case "finding_dispose": return textResult(disposeFinding(args.key, args.id, args.disposition, args.detail));
     case "review_state": return textResult(reviewState(args.key));
+    case "comments_pull": return textResult(commentsPull(args.key, args.pr));
+    case "comment_add": return textResult(commentAdd(args.pr, args));
+    case "comment_reply": return textResult(commentReply(args.comment_id, args.body));
+    case "comment_resolve": return textResult(commentResolve(args.thread_id));
+    case "doctor": return textResult(doctor());
     default: throw new Error(`unknown tool: ${name}`);
   }
 }
@@ -291,6 +525,12 @@ function handle(msg) {
 }
 
 // ---------- entry ----------
+
+if (process.argv.includes("--doctor")) {
+  const d = doctor();
+  process.stdout.write(JSON.stringify(d, null, 2) + "\n");
+  process.exit(d.ok ? 0 : 1);
+}
 
 if (process.argv.includes("--print-context")) {
   const ctx = sessionContext();

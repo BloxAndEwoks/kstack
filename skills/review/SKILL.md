@@ -32,11 +32,12 @@ the author never knew they were making.
 3. **Prefer few, high-signal findings.** No style nits, no comments on correct code.
    Every finding names *what* is wrong and *why it matters*, anchored to
    `path` + line range.
-4. **Emit findings.** With the `kstack` MCP server: `finding_add` per finding.
-   Without it: append to `.kstack/review/<branch>.json` per the schema, or — on a
-   real PR — post inline comments via
-   `gh api repos/{owner}/{repo}/pulls/{n}/comments` with the normalized marker
-   block (see `references/finding-schema.md` for the wire format).
+4. **Emit findings.** With the `kstack` MCP server: `finding_add` per finding,
+   then `comment_add` to post each as an inline PR comment carrying the
+   normalized marker (the wire format in
+   `skills/review-loop/references/finding-schema.md`). Without it: post via
+   `gh api repos/{owner}/{repo}/pulls/{n}/comments` with the same marker block,
+   or append to `.kstack/review/<branch>.json`.
 5. **Independence.** Where the host supports subagents, run the pass as a
    non-author subagent using the `kstack:reviewer` profile — its own context, fed
    the diff and the repo rules, never the author's self-report.
@@ -47,5 +48,10 @@ the author never knew they were making.
    - `PASS` — no findings.
    Post the verdict on the PR when one exists; it outlives the chat there.
 
-One pass. The reviewer's job is findings, not meetings — iteration on findings
-happens in `/kstack:review-loop`.
+## Iterate until clean
+
+The pass is not capped at one round — the cloud loop's shape is review → fix →
+re-review → resolved. After `review-loop` disposes the findings and the fixes
+push, run the pass again on the new head. The bound is `review_state` reporting
+zero `pending` — never a count of rounds. What stays bounded is *scope*: each
+pass reviews `BASE..HEAD`, not the whole repo.

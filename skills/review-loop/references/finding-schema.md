@@ -23,6 +23,7 @@ wire protocol so nothing downstream needs to know which bot (or human) spoke.
   "body": "Any `rule` proposal is rejected by …",
   "remediation": "…",                        // suggested fix, when the source gives one
   "thread_id": "PRRC_…",                    // the PR comment thread it lives on
+  "mechanism": "wrong-model | missing-fact | missing-guard | null",  // triage fills this
   "disposition": "pending | fixed | refuted | deferred | accepted-risk | dismissed",
   "disposition_detail": "<sha | reason | named trigger>",
   "created_at": "…", "resolved_at": "…"
@@ -53,6 +54,19 @@ round-trips machine-readably — same convention Devin Review uses:
 
 Body… Remediation…
 ```
+
+## Mechanism — classify before remedying
+
+Triage assigns every accepted finding a mechanism, the taxonomy that separates
+understanding a problem from whack-a-mole:
+
+| mechanism | meaning | the fix |
+|---|---|---|
+| `wrong-model` | the design is wrong — the finding is a symptom | redesign; never a note, never a patch |
+| `missing-fact` | the code lacks a fact it needs | carry the fact at the layer that first has it; never a local guess |
+| `missing-guard` | design right, fact present, boundary check absent | the one case a local fix is correct |
+
+`deferred` is never a legal disposition for `wrong-model`.
 
 ## Dispositions and the response protocol
 

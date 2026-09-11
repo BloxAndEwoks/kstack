@@ -29,6 +29,9 @@ it does.
 
 ## Anti-spiral rule
 
-Depth is opt-in, never recursive. One independent review pass per PR. Findings get
-dispositions, not meetings. If a repo wants more rigor, that rigor lives in the
-repo's own rules — not in plugin machinery that compounds.
+Review iterates until findings are adequately resolved — the bound is zero
+`pending`, not a round count. Findings get dispositions, not meetings: classify
+each by mechanism before remedying (wrong-model → redesign; missing-fact → carry
+the fact upstream; missing-guard → local fix), then respond on its thread. If a
+repo wants more rigor, that rigor lives in the repo's own rules — not in plugin
+machinery that compounds.
