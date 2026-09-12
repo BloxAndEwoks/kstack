@@ -220,9 +220,14 @@ const CODERABBIT_SEV = [
 
 function normalizeComment(c, source) {
   // Devin Review / kstack markers
-  const marker = c.body?.match(/<!--\s*(?:devin-review-comment|kstack-finding)\s+(\{[^}]*\})\s*-->/);
+  const marker = c.body?.match(/<!--\s*(devin-review-comment|kstack-finding)\s+(\{[^}]*\})\s*-->/);
   let meta = {};
-  if (marker) { try { meta = JSON.parse(marker[1]); } catch { meta = {}; } }
+  if (marker) { try { meta = JSON.parse(marker[2]); } catch { meta = {}; } }
+  // marker beats login for source attribution — a devin-review marker means the
+  // tool spoke, whoever posted it
+  if (marker?.[1] === "devin-review-comment") source = "devin-review";
+  else if (marker?.[1] === "kstack-finding") source = "self-review";
+  else if (/coderabbit/i.test(c.user?.login ?? "")) source = "coderabbit";
 
   const head = (c.body ?? "").replace(/<!--[\s\S]*?-->/, "").trim();
   const emoji = Object.keys(EMOJI_SEV).find(e => head.startsWith(e));
@@ -338,11 +343,37 @@ function commentReply(commentId, body) {
   return { comment_id: posted.id, html_url: posted.html_url };
 }
 
-function commentResolve(threadId) {
+function commentResolve(id) {
+  // Accepts either a GraphQL thread id (PRRT_…) or a REST comment id —
+  // stored thread_id values are REST comment ids, so look the thread up.
+  let threadId = id;
+  if (!String(id).startsWith("PRRT_")) {
+    const slug = repoSlug();
+    const [owner, repo] = slug.split("/");
+    const n = currentPrNumber();
+    const q = `query { repository(owner:"${owner}",name:"${repo}") { pullRequest(number:${n}) { reviewThreads(first:100) { nodes { id isResolved comments(first:100) { nodes { databaseId } } } } } } }`;
+    const out = gh(["api", "graphql", "-f", `query=${q}`]);
+    if (!out) throw new Error("graphql lookup of review threads failed");
+    const threads = JSON.parse(out).data?.repository?.pullRequest?.reviewThreads?.nodes ?? [];
+    const hit = threads.find(t => t.comments?.nodes?.some(c => String(c.databaseId) === String(id)));
+    if (!hit) throw new Error(`no review thread contains comment ${id}`);
+    if (hit.isResolved) return { thread_id: hit.id, isResolved: true, already: true };
+    threadId = hit.id;
+  }
   const out = gh(["api", "graphql", "-f", `query=mutation { resolveReviewThread(input:{threadId:"${threadId}"}) { thread { isResolved } } }`]);
-  if (!out) throw new Error("gh api graphql failed — resolveReviewThread needs a GraphQL thread id (PRRT_…), not a comment id");
+  if (!out) throw new Error("gh api graphql failed");
   return JSON.parse(out);
 }
+
+// Pure diff, extracted for testing: given the last-seen snapshot and the
+// current observation, return what's new. First run baselines (no alerts).
+function diffWatch(seen, commentIds, failingChecks) {
+  const newCommentIds = seen.at ? commentIds.filter(id => !seen.comment_ids.includes(id)) : [];
+  const newlyFailing = failingChecks.filter(x => !seen.failing_checks.includes(x));
+  return { newCommentIds, newlyFailing, quiet: newCommentIds.length === 0 && newlyFailing.length === 0 };
+}
+
+const FAILING_CHECK_STATES = ["FAILURE", "ERROR", "TIMED_OUT"]; // CANCELLED is infra, not a verdict
 
 function watch(key) {
   // The standing-monitor equivalent for active sessions: diff remote PR state
@@ -351,21 +382,28 @@ function watch(key) {
   const n = currentPrNumber();
   if (!n) return { state: "no-pr", message: "no PR for the current branch — nothing to watch" };
 
+  const prJson = gh(["pr", "view", String(n), "--json", "number,state,headRefOid"]);
+  const pr = prJson ? JSON.parse(prJson) : null;
+  if (!pr) return { state: "no-pr", message: "no PR for the current branch" };
+  if (pr.state === "MERGED" || pr.state === "CLOSED") {
+    return { state: pr.state.toLowerCase(), pr: n, quiet: true, new_comments: [], newly_failing_checks: [], pending_findings: loadStore(key ?? String(n)).findings.filter(f => f.disposition === "pending").length };
+  }
+
   const store = loadStore(key ?? String(n));
   const seen = store.watch ?? { comment_ids: [], failing_checks: [], at: null };
 
   const inline = JSON.parse(gh(["api", `repos/${slug}/pulls/${n}/comments`, "--paginate"]) ?? "[]");
   const topLevel = JSON.parse(gh(["api", `repos/${slug}/issues/${n}/comments`, "--paginate"]) ?? "[]");
   const currentIds = [...inline, ...topLevel].map(c => c.id);
-  const newIds = seen.at ? currentIds.filter(id => !seen.comment_ids.includes(id)) : [];
 
   const checks = JSON.parse(gh(["pr", "checks", String(n), "--json", "name,state"]) ?? "[]");
-  const failingNow = checks.filter(c => ["FAILURE", "ERROR", "TIMED_OUT"].includes(c.state)).map(c => c.name);
-  const newlyFailing = failingNow.filter(x => !seen.failing_checks.includes(x));
+  const failingNow = checks.filter(c => FAILING_CHECK_STATES.includes(c.state)).map(c => c.name);
+
+  const { newCommentIds, newlyFailing, quiet } = diffWatch(seen, currentIds, failingNow);
 
   const newComments = [...inline, ...topLevel]
-    .filter(c => newIds.includes(c.id))
-    .map(c => ({ id: c.id, author: c.user?.login, path: c.path ?? null, preview: (c.body ?? "").replace(/<!--[\s\S]*?-->/, "").slice(0, 140) }));
+    .filter(c => newCommentIds.includes(c.id))
+    .map(c => ({ id: c.id, author: c.user?.login, path: c.path ?? null, preview: (c.body ?? "").replace(/<!--[\s\S]*?-->/, "").trim().slice(0, 140) }));
 
   store.watch = { comment_ids: currentIds, failing_checks: failingNow, at: new Date().toISOString() };
   saveStore(store.key, store);
@@ -377,7 +415,7 @@ function watch(key) {
     newly_failing_checks: newlyFailing,
     pending_findings: store.findings.filter(f => f.disposition === "pending").length,
     first_run: seen.at === null,
-    quiet: newComments.length === 0 && newlyFailing.length === 0,
+    quiet,
   };
 }
 
@@ -585,6 +623,72 @@ function handle(msg) {
 }
 
 // ---------- entry ----------
+
+if (process.argv.includes("--self-test")) {
+  const { mkdtempSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { chdir } = await import("node:process");
+  const dir = mkdtempSync(join(tmpdir(), "kstack-test-"));
+  execFileSync("git", ["init", "-q"], { cwd: dir });
+  execFileSync("git", ["remote", "add", "origin", "git@github.com:acme/widgets.git"], { cwd: dir });
+  chdir(dir);
+
+  let pass = 0, fail = 0;
+  const t = (name, cond) => { cond ? pass++ : (fail++, process.stdout.write(`FAIL ${name}\n`)); };
+  const throws = (fn) => { try { fn(); return false; } catch { return true; } };
+
+  // --- normalization ---
+  const devinBug = normalizeComment(
+    { id: 1, body: `<!-- devin-review-comment {"id":"BUG_j_0001","file_path":"a.ts","start_line":3,"end_line":3,"side":"RIGHT","based_on_repo_rules":false,"kind":"bug"} -->\n\n🔴 **Null deref**\n\nx is null here`, path: "a.ts", line: 3, side: "RIGHT", user: { login: "devin-ai-integration[bot]" } },
+    "devin-ai-integration[bot]");
+  t("devin marker parses kind/severity", devinBug.kind === "bug" && devinBug.severity === "severe");
+  t("devin marker source attribution", devinBug.source === "devin-review");
+  t("devin marker anchor", devinBug.path === "a.ts" && devinBug.start_line === 3 && devinBug.end_line === 3);
+  t("devin marker title", devinBug.title === "Null deref");
+
+  const sec = normalizeComment({ id: 2, body: `<!-- devin-review-comment {"id":"SEC_j_0001","kind":"security","file_path":"b.ts"} -->\n\n🟥 **Auth bypass**\n\nCWE-862 missing authz`, user: { login: "x[bot]" } }, "x[bot]");
+  t("security square emoji → high", sec.kind === "security" && sec.severity === "high");
+  t("cwe extracted", sec.cwe === "CWE-862");
+
+  const cr = normalizeComment({ id: 3, body: "_⚠️ Potential issue_\nsomething may be off", path: "c.ts", user: { login: "coderabbitai[bot]" } }, "coderabbitai[bot]");
+  t("coderabbit potential issue → non-severe bug", cr.kind === "bug" && cr.severity === "non-severe" && cr.source === "coderabbit");
+
+  const human = normalizeComment({ id: 4, body: "are we sure this handles empty input?", user: { login: "keivan" } }, "human");
+  t("unmarked human → investigate flag", human.kind === "flag" && human.severity === "investigate" && human.source === "human");
+
+  const rawBot = normalizeComment({ id: 5, body: "this will throw on undefined", path: "d.ts", user: { login: "somebot[bot]" } }, "somebot[bot]");
+  t("unmarked bot asserting defect → bug", rawBot.kind === "bug");
+
+  // --- watch diff ---
+  const s0 = { comment_ids: [], failing_checks: [], at: null };
+  t("first run baselines (no alerts)", diffWatch(s0, [1, 2, 3], ["web"]).newCommentIds.length === 0);
+  const s1 = { comment_ids: [1, 2, 3], failing_checks: ["web"], at: "t1" };
+  t("no-change is quiet", diffWatch(s1, [1, 2, 3], ["web"]).quiet === true);
+  t("new comment detected", diffWatch(s1, [1, 2, 3, 4], ["web"]).newCommentIds.includes(4));
+  t("recovered check does not re-alert", diffWatch(s1, [1, 2, 3], []).quiet === true);
+  t("newly failing check detected", diffWatch(s1, [1, 2, 3], ["web", "python"]).newlyFailing.includes("python"));
+
+  // --- store: validation, dispositions, verdicts ---
+  t("rejects bad kind", throws(() => addFinding("k1", { kind: "typo", severity: "severe", path: "a", title: "x" })));
+  t("rejects severity/kind mismatch", throws(() => addFinding("k1", { kind: "flag", severity: "severe", path: "a", title: "x" })));
+  t("rejects bad mechanism", throws(() => addFinding("k1", { kind: "bug", severity: "severe", path: "a", title: "x", mechanism: "vibes" })));
+  const f1 = addFinding("k1", { kind: "bug", severity: "severe", path: "a.ts", title: "boom", mechanism: "missing-fact" });
+  t("finding id prefixed", f1.id.startsWith("BUG_"));
+  t("severe pending → FAIL", reviewState("k1").suggested_verdict === "FAIL");
+  t("cannot dispose to pending", throws(() => disposeFinding("k1", f1.id, "pending")));
+  const f2 = addFinding("k1", { kind: "flag", severity: "note", path: "b.ts", title: "fyi" });
+  disposeFinding("k1", f2.id, "dismissed", "dup");
+  t("non-blocking pending → still FAIL while severe open", reviewState("k1").suggested_verdict === "FAIL");
+  disposeFinding("k1", f1.id, "deferred", "when X lands");
+  t("all terminal → PASS", reviewState("k1").suggested_verdict === "PASS");
+
+  const f3 = addFinding("k2", { kind: "security", severity: "low", path: "c.ts", title: "minor" });
+  t("non-blocking security → PASS+NOTES", reviewState("k2").suggested_verdict === "PASS+NOTES");
+  t("repoSlug ssh form", repoSlug() === "acme/widgets");
+
+  process.stdout.write(`self-test: ${pass} passed, ${fail} failed\n`);
+  process.exit(fail ? 1 : 0);
+}
 
 if (process.argv.includes("--watch")) {
   // For the Stop hook: print a one-line nudge only when the PR changed.

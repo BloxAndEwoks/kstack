@@ -51,19 +51,27 @@ git worktree add ../<repo>-<slug> -b <type>/<slug>
 
 A fresh worktree contains **only tracked files** — gitignored env files
 (`.env`, `.env.local`, credentials, local config) do not follow it. After
-creating the worktree, carry them across explicitly:
+creating the worktree, carry them across:
 
 ```bash
-# copy (or symlink, for secrets that must stay live) each env file
+# secrets: symlink, don't copy — one file, one permission boundary,
+# no drift, no second copy to leak
 for f in .env .env.local .env.*.local; do
-  [ -f "$f" ] && cp "$f" "../<repo>-<slug>/$f"
+  [ -f "$f" ] && ln -s "$(pwd)/$f" "../<repo>-<slug>/$f"
 done
 ```
 
-Same for any gitignored fixture or data file the unit's surface needs — check
-`git status --ignored` in the main checkout for what won't be there. If the repo
-has `run-commands` entries with `runOn: "worktreeCreated"`, they may already
-cover this — check `.vscode/tasks.json` first.
+Security rules:
+- **Symlink secrets, copy only non-secret fixtures.** A copied `.env` is a
+  second copy of real credentials — it drifts, it lingers, and it can land in
+  places the original never would.
+- **Never put a worktree (or its env files) on a synced or shared path** —
+  `~/Documents` may be iCloud-synced; a copied `.env` there syncs to the cloud.
+  Sibling dirs and `/tmp` are fine; synced folders are not.
+- Check `git status --ignored` in the main checkout for what else won't be
+  there — fixtures, local DBs, cert files. If the repo has `run-commands`
+  entries with `runOn: "worktreeCreated"`, they may already cover this —
+  check `.vscode/tasks.json` first.
 
 Branch naming: `<type>/<slug>` where type is the playbook name (`feature/`, `fix/`,
 `perf/`, `docs/`, `chore/`, `investigate/`, `stack/`). Two to five words, lowercase,
