@@ -42,8 +42,10 @@ comments, watch, and merge-readiness lose their teeth.
   #        command = "node", args = ["<path>/mcp/review-state.mjs"]
   ```
   Verify any time: `node <path>/mcp/review-state.mjs --doctor` prints what's
-  wired and what's missing, with fix guidance. The same check is the `doctor`
-  MCP tool once the server is running.
+  wired and what's missing, with fix guidance. The same check exists three
+  ways: the CLI flag (works even when the server won't start), the `doctor`
+  MCP tool, and the `/kstack:doctor` skill — the entry point for when the MCP
+  layer itself is the thing that's down.
 
 ## Install
 
