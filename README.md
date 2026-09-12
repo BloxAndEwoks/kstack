@@ -22,16 +22,46 @@ Depth is opt-in and lives in the repo's own rules.
 ## Install
 
 ```bash
-# Devin CLI / Desktop
+# Devin CLI / Desktop (requires devin auth login; plugins are closed beta)
 devin plugins install BloxAndEwoks/kstack
 # or, for authoring, a local path:
 devin plugins install ~/Documents/kstack
+```
+
+```bash
+# Codex — via a marketplace catalog:
+codex plugin marketplace add BloxAndEwoks/kstack
+# then install "kstack" from the plugin browser, or point a marketplace entry
+# at this folder in .agents/plugins/marketplace.json (repo) or
+# ~/.agents/plugins/marketplace.json (personal)
+```
+
+```text
+# Claude Code — as a plugin repo, or copy/symlink the skill dirs into
+# .claude/skills/ for repo-scoped use.
+# Cursor — .cursor-plugin manifest; rules/skills per its plugin support.
 ```
 
 Agent Plugins 1.0.0 root manifest (`plugin.json`) is present, so any spec-compliant
 host loads it the same way. `.devin-plugin/`, `.claude-plugin/`, `.codex-plugin/`,
 and `.cursor-plugin/` manifests cover the native formats — Codex picks up `skills`,
 `hooks`, `mcpServers`, and the marketplace `interface` block from its manifest.
+
+## Invoke
+
+Entry point is the router:
+
+```text
+/kstack:loop add retry-with-backoff to the engine worker
+```
+
+or let the host auto-route — every skill description declares when it fires
+("route a task", "failed checks", "review this"). The bookend skills are also
+directly callable: `/kstack:open-pr`, `/kstack:review`, `/kstack:review-loop`,
+`/kstack:fix-ci`, `/kstack:sync`, `/kstack:land`, `/kstack:verify`,
+`/kstack:learn`, `/kstack:commit`, `/kstack:update-pr`, `/kstack:merge`,
+`/kstack:sync-upstream`, `/kstack:run-commands`. On Codex, `@kstack` invokes the
+plugin explicitly.
 
 ## The surface
 
