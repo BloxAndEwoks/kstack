@@ -14,7 +14,7 @@
 // <key> is the PR number or the sanitized branch name.
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, existsSync, renameSync } from "node:fs";
 import { join } from "node:path";
 
 const PROTOCOL_VERSION = "2024-11-05";
@@ -82,7 +82,10 @@ function loadStore(key) {
 }
 
 function saveStore(key, store) {
-  writeFileSync(storePath(key), JSON.stringify(store, null, 2) + "\n");
+  const p = storePath(key);
+  const tmp = `${p}.tmp-${process.pid}`;
+  writeFileSync(tmp, JSON.stringify(store, null, 2) + "\n");
+  renameSync(tmp, p); // atomic: a crash leaves the previous store intact
   // The store defaults to local-only: exclude it per-checkout via
   // .git/info/exclude without touching the repo's .gitignore.
   try {
@@ -280,7 +283,7 @@ function commentsPull(key, pr) {
   const byId = new Map(store.findings.map(f => [f.id, f]));
   let added = 0, updated = 0;
 
-  const humanish = (login) => !/\[bot\]$|bot$/i.test(login) ? "human" : login;
+  const humanish = (login) => !/\[bot\]$/i.test(login) && !/^coderabbit/i.test(login ?? "") ? "human" : login;
 
   for (const c of [...inline, ...topLevel]) {
     const body = c.body ?? "";
