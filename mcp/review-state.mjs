@@ -433,19 +433,29 @@ function commentAdd(pr, f, path) {
   }
   const tmp = `${process.env.TMPDIR ?? "/tmp"}kstack-comment-${Date.now()}.json`;
   writeFileSync(tmp, JSON.stringify(payload));
-  const out = gh(["api", `repos/${slug}/pulls/${n}/comments`, "-X", "POST", "--input", tmp], cwd);
-  if (!out) throw new Error("gh api failed posting the comment");
+  const out = ghWithErr(["api", `repos/${slug}/pulls/${n}/comments`, "-X", "POST", "--input", tmp], cwd);
   const posted = JSON.parse(out);
   return { id: f.id, comment_id: posted.id, html_url: posted.html_url };
 }
 
-function commentReply(commentId, body, path) {
+function ghWithErr(args, cwd) {
+  // gh() that surfaces the API's own error message instead of null.
+  try {
+    return execFileSync("gh", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  } catch (e) {
+    const detail = String(e.stderr ?? "").trim().split("\n").slice(-3).join(" | ");
+    throw new Error(`gh ${args.slice(0, 2).join(" ")} failed: ${detail || e.message}`);
+  }
+}
+
+function commentReply(commentId, body, pr, path) {
   const slug = repoSlug(path);
+  const cwd = resolveCwd(path);
+  const n = pr ?? currentPrNumber(path);
+  if (!n) throw new Error("no PR for the current branch — pass pr explicitly");
   const tmp = `${process.env.TMPDIR ?? "/tmp"}kstack-reply-${Date.now()}.json`;
   writeFileSync(tmp, JSON.stringify({ body }));
-  const cwd = resolveCwd(path);
-  const out = gh(["api", `repos/${slug}/pulls/comments/${commentId}/replies`, "-X", "POST", "--input", tmp], cwd);
-  if (!out) throw new Error("gh api failed posting the reply");
+  const out = ghWithErr(["api", `repos/${slug}/pulls/${n}/comments/${commentId}/replies`, "-X", "POST", "--input", tmp], cwd);
   const posted = JSON.parse(out);
   return { comment_id: posted.id, html_url: posted.html_url };
 }
@@ -641,7 +651,7 @@ const TOOLS = [
     description: "Reply on a finding's own comment thread — carries the disposition and its evidence (the fix SHA, the refutation, the deferral trigger).",
     inputSchema: {
       type: "object", required: ["comment_id", "body"],
-      properties: { comment_id: { type: "string" }, body: { type: "string" }, repo_path: { type: "string", description: "absolute path to the consuming repo — your workspace root" } },
+      properties: { comment_id: { type: "string" }, body: { type: "string" }, pr: { type: "number", description: "defaults to the current branch's PR" }, repo_path: { type: "string", description: "absolute path to the consuming repo — your workspace root" } },
       additionalProperties: false,
     },
   },
@@ -706,7 +716,7 @@ function callTool(name, args) {
     case "review_state": return textResult(reviewState(args.key, args.repo_path));
     case "comments_pull": return textResult(commentsPull(args.key, args.pr, args.repo_path));
     case "comment_add": return textResult(commentAdd(args.pr, args, args.repo_path));
-    case "comment_reply": return textResult(commentReply(args.comment_id, args.body, args.repo_path));
+    case "comment_reply": return textResult(commentReply(args.comment_id, args.body, args.pr, args.repo_path));
     case "comment_resolve": return textResult(commentResolve(args.thread_id, args.repo_path));
     case "watch": return textResult(watch(args.key, args.repo_path));
     case "ledger_append": return textResult(ledgerAppend(args.key, args.pr, { verdict: args.verdict, surfaces_verified: args.surfaces_verified, notes: args.notes }, args.repo_path));
