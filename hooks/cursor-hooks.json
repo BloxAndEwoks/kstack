@@ -1,0 +1,25 @@
+{
+  "description": "kstack session hooks — Cursor format (camelCase events). sessionStart injects the unit's ground-truth context; stop watches the PR for new comments, failing checks, and pending findings.",
+  "hooks": {
+    "sessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "P=\"${CURSOR_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-.}}}\"; node \"$P/mcp/review-state.mjs\" --print-context 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
+    "stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "P=\"${CURSOR_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-.}}}\"; node \"$P/mcp/review-state.mjs\" --watch 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}
