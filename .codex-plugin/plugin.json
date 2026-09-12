@@ -1,6 +1,6 @@
 {
   "name": "kstack",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "The bookended PR loop, portable: task -> worktree -> commits -> PR -> normalized review -> merge-ready handoff. Router + playbooks + the QA finding protocol, plus an MCP server that gives any agent the review-state tools the cloud harness has.",
   "author": {
     "name": "keivan"
@@ -35,7 +35,7 @@
       "Write"
     ],
     "defaultPrompt": [
-      "/kstack:loop \u2014 route this task through the PR loop",
+      "/kstack:unit \u2014 route this task through the PR loop",
       "Run the review pass on this PR and normalize the findings",
       "Check merge-readiness and hand off"
     ],
