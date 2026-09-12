@@ -6,5 +6,12 @@
   "license": "MIT",
   "keywords": ["pr-loop", "review", "agent-workflow", "qa"],
   "repository": "https://github.com/BloxAndEwoks/kstack",
-  "hooks": "./hooks/cursor-hooks.json"
+  "hooks": "./hooks/cursor-hooks.json",
+  "mcpServers": {
+    "kstack": {
+      "command": "node",
+      "args": ["mcp/review-state.mjs"],
+      "cwd": "${PLUGIN_ROOT}"
+    }
+  }
 }
