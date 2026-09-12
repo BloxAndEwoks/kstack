@@ -10,8 +10,10 @@ who was not in the session.
 
 ## Procedure
 
-1. **Hygiene first.** Run the repo's checks where they exist (lint, typecheck, the
-   targeted tests the change touches). Fix what they surface before opening.
+1. **Hygiene first.** The unit's `/kstack:verify` pass already ran the floor
+   (checks + the surface drive). If it hasn't run yet — run it now. Re-run the
+   check suite only if the head moved since the last verify; do not duplicate
+   the drive.
 2. **Commit everything.** Uncommitted changes go through `/kstack:commit` first.
 3. **Read the whole diff.** `git log <base>..HEAD --oneline` and `git diff
    <base>...HEAD` — where `<base>` is the unit's BASE, not the branch point GitHub

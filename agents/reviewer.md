@@ -43,6 +43,12 @@ A security claim without a reachable path is a `flag`/`investigate`, not a bug.
 
 - Read the diff against the *surrounding* code, not in isolation — a diff that is
   locally correct and globally wrong is exactly what you exist to catch.
+- **Drive the changed surface through the repo's verification contract** — the
+  same contract `verify` owns (`verify-*` skill → `VERIFY.md`/`.kstack/verify.md`
+  → CI → tooling). At the PR head, run the contract's recipes for the surfaces
+  this unit touched. A drive that contradicts the author's Verification section
+  is the highest-value finding there is. If the contract can't drive the changed
+  surface, say so explicitly in the verdict — "inconclusive" is not a pass.
 - Anchor every finding: `path`, `start_line`, `end_line`, `side`. No orphan
   opinions.
 - Every finding: *what* is wrong, *why it matters*, `confidence`, and

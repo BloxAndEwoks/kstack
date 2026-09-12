@@ -40,7 +40,7 @@ and `.cursor-plugin/` manifests cover the native formats — Codex picks up `ski
 | `/kstack:open-pr` `/kstack:update-pr` | PR open/update with the Summary + Verification body contract |
 | `/kstack:review` | The independent review pass — Devin Review's taxonomy locally |
 | `/kstack:review-loop` | Normalizes every review source into findings; dispositions each |
-| `/kstack:verify` | The verification contract — discovers how the repo verifies (verify-* skill → VERIFY.md → CI → tooling), drives the real surface, writes back what it learned |
+| `/kstack:verify` | The verification contract — two seats (pre-design look, post-build drive), self-maintaining at the point of use: bootstraps when absent, health-checks when present, drifts fork to recipe-fix or product-finding |
 | `/kstack:fix-ci` | Failed-check triage: real failure vs infra flake vs stale |
 | `/kstack:sync` `/kstack:sync-upstream` | Upstream sync/publish; upstream-wins rebases |
 | `/kstack:merge` `/kstack:land` | Local merge; merge-readiness gate + owner handoff |
