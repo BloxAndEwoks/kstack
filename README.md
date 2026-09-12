@@ -68,10 +68,12 @@ codex plugin marketplace add BloxAndEwoks/kstack
 # Cursor — .cursor-plugin manifest; rules/skills per its plugin support.
 ```
 
-Agent Plugins 1.0.0 root manifest (`plugin.json`) is present, so any spec-compliant
-host loads it the same way. `.devin-plugin/`, `.claude-plugin/`, `.codex-plugin/`,
-and `.cursor-plugin/` manifests cover the native formats — Codex picks up `skills`,
-`hooks`, `mcpServers`, and the marketplace `interface` block from its manifest.
+Agent Plugins 1.0.0 root manifest (`plugin.json`, closed spec schema) plus the
+spec's `mcp.json` MCP declaration — spec-compliant hosts load both.
+`.devin-plugin/`, `.claude-plugin/`, `.codex-plugin/`, and `.cursor-plugin/`
+manifests cover the native formats, each declaring the server inline with that
+host's own path convention (Codex: relative `cwd`; Claude: `${CLAUDE_PLUGIN_ROOT}`;
+Devin: `${PLUGIN_ROOT}`).
 
 ## Invoke
 

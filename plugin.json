@@ -1,5 +1,5 @@
 {
-  "$schema": "https://raw.githubusercontent.com/agentplugins/agent-plugins-spec/main/schema/1.0.0/plugin.json",
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "kstack",
   "version": "1.0.0",
   "description": "The bookended PR loop, portable: task -> worktree -> commits -> PR -> normalized review -> merge-ready handoff. Router + playbooks + the QA finding protocol, plus an MCP server that gives any agent the review-state tools the cloud harness has.",
@@ -13,14 +13,5 @@
     "agent-workflow",
     "qa"
   ],
-  "repository": "https://github.com/BloxAndEwoks/kstack",
-  "mcpServers": {
-    "kstack": {
-      "command": "node",
-      "args": [
-        "${PLUGIN_ROOT}/mcp/review-state.mjs"
-      ],
-      "cwd": "."
-    }
-  }
+  "repository": "https://github.com/BloxAndEwoks/kstack"
 }
