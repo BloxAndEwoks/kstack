@@ -7,7 +7,8 @@ description: Route a task into the bookended PR loop — captures BASE, isolates
 
 One sentence of contract: **a unit enters here and exits as a merge-ready PR.**
 A unit is the work behind one PR — a named goal, one to five commits. A task
-with two goals is two units.
+with two goals is two units. Do not invoke for casual questions or tasks with
+no code artifact — answer those directly.
 
 The repo's own procedure file (`AGENTS.md`, `CONTRIBUTING.md`, or equivalent) outranks
 this plugin on every repo-specific question — commands, deploy policy, who merges,
