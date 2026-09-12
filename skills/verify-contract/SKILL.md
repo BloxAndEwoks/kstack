@@ -58,6 +58,14 @@ drive. The health check is a command, not a walk.
 - *Product wrong* (the contract is right, the product moved) → a finding into
   `/kstack:review-loop` triage, or straight back into the unit's fix.
 
+**Drift off the unit's path → sweep once, don't absorb silently.** A dead
+recipe on a surface the unit never touched means the contract's staleness is
+unbounded — drive the whole contract in this unit, repair the dead recipes,
+and record the sweep in the ledger row's `surfaces_verified` so "last full
+sweep" stays queryable. Drift blocking the unit's own verification path is
+always fixed in-unit — it is the unit's evidence. Product breakage the sweep
+surfaces becomes findings or a follow-up unit, not silent fixes.
+
 **Bounded by contact.** The contract grows one surface at a time — only surfaces
 a unit actually touched earn entries. Never enumerate the whole product; a repo
 that wants the full enumerated map writes `VERIFY.md` itself (or adopts the

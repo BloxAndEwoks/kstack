@@ -29,7 +29,8 @@ it does.
 3. `open-pr` writes the PR; `review` runs the independent pass; `review-loop`
    normalizes every review source into findings and drives each to a disposition.
 4. `fix-ci` owns check failures; `sync` keeps the branch current.
-5. `land` reports merge-readiness and stops. The owner merges.
+5. `land` writes the durable `.kstack/ledger.jsonl` record, reports
+   merge-readiness, and stops. The owner merges.
 
 ## Anti-spiral rule
 

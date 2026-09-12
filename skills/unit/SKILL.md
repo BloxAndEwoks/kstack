@@ -52,6 +52,22 @@ may spawn outside the workspace and needs to be pointed at the consuming repo.
 - **Procedure file exists but names no process** → it parameterizes this loop;
   proceed.
 
+**First contact.** When this is the first kstack unit a repo has seen, check for
+and set up what the loop's later stages depend on:
+
+- **`.kstack/` state.** The review store auto-excludes `.kstack/review/` via
+  `.git/info/exclude` on first write — verify the entry is the *narrow* form; a
+  broad `.kstack/` exclude would hide the committed ledger. The committed
+  `ledger.jsonl` + `archive/` appear at the first `land` — nothing to create
+  ahead of time.
+- **Worktree env carry.** If `git status --ignored` shows env the worktree will
+  need (`.env`, `.venv/`, `*/.env*`, local DBs) and the repo has no carry
+  mechanism — no setup script, no `worktreeCreated` run command in
+  `.vscode/tasks.json` — scaffold `scripts/setup-worktree.sh` (symlink, never
+  copy) or record the gap in the procedure file. A worktree that fails its
+  first test on missing env looks like a product regression and costs a
+  rediscovery every session.
+
 ## Step 1 — isolate
 
 The unit gets its own branch. In a worktree when the repo or the task benefits from
@@ -62,14 +78,16 @@ git worktree add ../<repo>-<slug> -b <type>/<slug>
 ```
 
 A fresh worktree contains **only tracked files** — gitignored env files
-(`.env`, `.env.local`, credentials, local config) do not follow it. After
-creating the worktree, carry them across:
+(`.env`, `.env.local`, credentials) *and env directories* (`.venv/`, local
+DBs, cert stores) do not follow it. If the repo ships a carry mechanism — a
+setup script, a `worktreeCreated` run command — run it. Otherwise carry them
+across:
 
 ```bash
-# secrets: symlink, don't copy — one file, one permission boundary,
-# no drift, no second copy to leak
-for f in .env .env.local .env.*.local; do
-  [ -f "$f" ] && ln -s "$(pwd)/$f" "../<repo>-<slug>/$f"
+# secrets and env dirs: symlink, don't copy — one file, one permission
+# boundary, no drift, no second copy to leak
+for f in .env .env.local .env.*.local .venv; do
+  [ -e "$f" ] && ln -s "$(pwd)/$f" "../<repo>-<slug>/$f"
 done
 ```
 
