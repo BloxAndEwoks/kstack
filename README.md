@@ -77,6 +77,18 @@ manifests cover the native formats, each declaring the server inline with that
 host's own path convention (Codex: relative `cwd`; Claude: `${CLAUDE_PLUGIN_ROOT}`;
 Devin: `${PLUGIN_ROOT}`).
 
+**Verified host loading** (as of this branch):
+
+- **Codex** — full pass: `codex plugin marketplace add` + `codex plugin add`
+  installs it, `codex mcp list` shows `kstack` enabled with the server resolved
+  to the plugin cache path and `PLUGIN_ROOT`/`PLUGIN_DATA` injected, and the
+  plugin `AGENTS.md` loads as an always-on rule.
+- **Claude Code** — `claude plugin validate` passes; session-level loading via
+  `claude --plugin-dir <path>` (needs a signed-in CLI).
+- **Devin** — `devin plugins install <path>` once authenticated.
+- **Cursor** — `.cursor-plugin` is IDE-side; the reliable path is the always-on
+  `AGENTS.md` + a manual `mcp`/`--add-mcp` entry for the server.
+
 ## Invoke
 
 Entry point is the router:
