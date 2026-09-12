@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "kstack",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "The bookended PR loop, portable: task -> worktree -> commits -> PR -> normalized review -> merge-ready handoff. Router + playbooks + the QA finding protocol, plus an MCP server that gives any agent the review-state tools the cloud harness has.",
   "author": {
     "name": "keivan"
