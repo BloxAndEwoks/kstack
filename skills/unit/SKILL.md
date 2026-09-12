@@ -1,15 +1,25 @@
 ---
-name: loop
+name: unit
 description: Route a task into the bookended PR loop. Invoke at the start of any task meant to end as a PR — features, fixes, perf work, docs, chores, investigations. Captures BASE, opens the worktree, matches a playbook, and carries the task through review to a merge-ready handoff. Do not invoke for casual questions or tasks with no code artifact.
 ---
 
-# loop — the bookend router
+# unit — the bookend router
 
-One sentence of contract: **a task enters here and exits as a merge-ready PR.**
+One sentence of contract: **a unit enters here and exits as a merge-ready PR.**
+A unit is the work behind one PR — a named goal, one to five commits. A task
+with two goals is two units.
 
 The repo's own procedure file (`AGENTS.md`, `CONTRIBUTING.md`, or equivalent) outranks
 this plugin on every repo-specific question — commands, deploy policy, who merges,
 review conventions. Read it first when it exists.
+
+**Intake from a spec.** A unit may arrive as a PRD section, an issue, or a task
+sentence — the artifact is the contract, not the process that produced it.
+Author the PRD however the harness plans (native plan mode, free-flow, by hand);
+the template (`templates/PRD.template.md`) defines what "ready" looks like —
+requirements with verification, non-goals, acceptance, and ordered `## Phases`.
+Routing "`PRD-<x> phase <n>`" means: run that phase's units in order, `stack`
+when they're dependent.
 
 ## Step 0 — context
 

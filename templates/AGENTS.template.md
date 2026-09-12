@@ -1,7 +1,7 @@
 # Agent Instructions
 
 This is the repository profile — what this repo knows about itself that no code
-or plugin can carry. kstack supplies the loop (`/kstack:loop`); this file is the
+or plugin can carry. kstack supplies the loop (`/kstack:unit`); this file is the
 authority on this repo's specifics.
 
 ## Commands
@@ -24,7 +24,7 @@ Each landed unit appends a row to the committed `.kstack/ledger.jsonl`
 (findings, mechanisms, dispositions, verdict, verified surfaces) and archives
 its full finding set to `.kstack/archive/` — the queryable index over units.
 Larger artifacts (PRD/ADR/ops) come from the kstack `templates/` on demand —
-see the plugin's `skills/loop/references/artifacts.md` for when each earns
+see the plugin's `skills/unit/references/artifacts.md` for when each earns
 its file.
 
 ## Machine constraints
@@ -37,7 +37,7 @@ Facts the code does not show — append the next one the first time it bites:
 ## Tests
 
 Follow the testing doctrine in the kstack plugin
-(`skills/loop/references/testing.md`): tests verify behavior at the public
+(`skills/unit/references/testing.md`): tests verify behavior at the public
 surface, regression tests are proven to fail on unfixed code, and the AI failure
 modes listed there are checked before a test counts.
 

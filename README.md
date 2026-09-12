@@ -78,8 +78,14 @@ and `.cursor-plugin/` manifests cover the native formats — Codex picks up `ski
 Entry point is the router:
 
 ```text
-/kstack:loop add retry-with-backoff to the engine worker
+/kstack:unit add retry-with-backoff to the engine worker
 ```
+
+A unit can also arrive from a spec — `/kstack:unit PRD-auth phase 2`. Author the
+PRD however your harness plans (native plan mode, free-flow, by hand); the
+plugin owns the artifact's *shape* (`templates/PRD.template.md` — requirements,
+non-goals, acceptance, ordered phases), the harness owns the modality. The
+router consumes the PRD; it doesn't police how it was written.
 
 or let the host auto-route — every skill description declares when it fires
 ("route a task", "failed checks", "review this"). The bookend skills are also
@@ -93,7 +99,7 @@ plugin explicitly.
 
 | piece | what it does |
 |---|---|
-| `/kstack:loop` | Router — captures BASE, opens the worktree, matches a playbook |
+| `/kstack:unit` | Router — captures BASE, opens the worktree, matches a playbook |
 | `loop/playbooks/` | `feature` `bugfix` `perf` `docs` `chore` `investigate` `stack` |
 | `/kstack:commit` | Convention-matched commits |
 | `/kstack:open-pr` `/kstack:update-pr` | PR open/update with the Summary + Verification body contract |
@@ -152,7 +158,7 @@ State layering: **PR = the conversation, `.kstack/ledger.jsonl` = the index over
 conversations, `AGENTS.md` = distilled lessons** (via `learn`). Live working sets
 (`.kstack/review/`) stay local; records commit. On-demand document templates
 (PRD, ADR, ops note) live in `templates/` — triggered when warranted, never
-mandated; see `skills/loop/references/artifacts.md`.
+mandated; see `skills/unit/references/artifacts.md`.
 
 Hosts without plugin MCP: the skills fall back to `gh` + the same store files —
 the store is plain JSON, no tool required. `node mcp/review-state.mjs --doctor`

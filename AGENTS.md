@@ -23,7 +23,7 @@ it does.
 
 ## The loop, briefly
 
-1. Route the task (`/kstack:loop`) — it captures BASE, opens the worktree, and hands
+1. Route the task (`/kstack:unit`) — it captures BASE, opens the worktree, and hands
    the task to a playbook.
 2. The playbook builds, tests, and verifies on the real surface.
 3. `open-pr` writes the PR; `review` runs the independent pass; `review-loop`
