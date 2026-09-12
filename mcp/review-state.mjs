@@ -344,6 +344,43 @@ function commentResolve(threadId) {
   return JSON.parse(out);
 }
 
+function watch(key) {
+  // The standing-monitor equivalent for active sessions: diff remote PR state
+  // against the last-seen snapshot stored alongside the findings.
+  const slug = repoSlug();
+  const n = currentPrNumber();
+  if (!n) return { state: "no-pr", message: "no PR for the current branch — nothing to watch" };
+
+  const store = loadStore(key ?? String(n));
+  const seen = store.watch ?? { comment_ids: [], failing_checks: [], at: null };
+
+  const inline = JSON.parse(gh(["api", `repos/${slug}/pulls/${n}/comments`, "--paginate"]) ?? "[]");
+  const topLevel = JSON.parse(gh(["api", `repos/${slug}/issues/${n}/comments`, "--paginate"]) ?? "[]");
+  const currentIds = [...inline, ...topLevel].map(c => c.id);
+  const newIds = seen.at ? currentIds.filter(id => !seen.comment_ids.includes(id)) : [];
+
+  const checks = JSON.parse(gh(["pr", "checks", String(n), "--json", "name,state"]) ?? "[]");
+  const failingNow = checks.filter(c => ["FAILURE", "ERROR", "TIMED_OUT"].includes(c.state)).map(c => c.name);
+  const newlyFailing = failingNow.filter(x => !seen.failing_checks.includes(x));
+
+  const newComments = [...inline, ...topLevel]
+    .filter(c => newIds.includes(c.id))
+    .map(c => ({ id: c.id, author: c.user?.login, path: c.path ?? null, preview: (c.body ?? "").replace(/<!--[\s\S]*?-->/, "").slice(0, 140) }));
+
+  store.watch = { comment_ids: currentIds, failing_checks: failingNow, at: new Date().toISOString() };
+  saveStore(store.key, store);
+
+  return {
+    pr: n,
+    checked_at: store.watch.at,
+    new_comments: newComments,
+    newly_failing_checks: newlyFailing,
+    pending_findings: store.findings.filter(f => f.disposition === "pending").length,
+    first_run: seen.at === null,
+    quiet: newComments.length === 0 && newlyFailing.length === 0,
+  };
+}
+
 function doctor() {
   const checks = {
     node: process.version,
@@ -467,6 +504,15 @@ const TOOLS = [
     },
   },
   {
+    name: "watch",
+    description: "Diff remote PR state against the last-seen snapshot: new comments (normalized previews), newly-failing checks, pending findings. The standing-monitor primitive — fires on hook during active sessions, or call directly on 'what changed on the PR'.",
+    inputSchema: {
+      type: "object",
+      properties: { key: { type: "string", description: "defaults to the PR number" } },
+      additionalProperties: false,
+    },
+  },
+  {
     name: "doctor",
     description: "Check the wiring: node, git, gh CLI, gh auth, repo context. Run first in any session that will touch a PR — reports exactly what is missing and how to fix it.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
@@ -495,6 +541,7 @@ function callTool(name, args) {
     case "comment_add": return textResult(commentAdd(args.pr, args));
     case "comment_reply": return textResult(commentReply(args.comment_id, args.body));
     case "comment_resolve": return textResult(commentResolve(args.thread_id));
+    case "watch": return textResult(watch(args.key));
     case "doctor": return textResult(doctor());
     default: throw new Error(`unknown tool: ${name}`);
   }
@@ -538,6 +585,20 @@ function handle(msg) {
 }
 
 // ---------- entry ----------
+
+if (process.argv.includes("--watch")) {
+  // For the Stop hook: print a one-line nudge only when the PR changed.
+  try {
+    const w = watch();
+    if (w.state === "no-pr" || (w.quiet && w.pending_findings === 0)) process.exit(0);
+    const bits = [];
+    if (w.new_comments?.length) bits.push(`${w.new_comments.length} new PR comment(s)`);
+    if (w.newly_failing_checks?.length) bits.push(`newly failing checks: ${w.newly_failing_checks.join(", ")}`);
+    if (w.pending_findings) bits.push(`${w.pending_findings} pending finding(s)`);
+    if (bits.length) process.stdout.write(`[kstack watch] PR #${w.pr}: ${bits.join("; ")} — consider /kstack:review-loop or /kstack:fix-ci\n`);
+  } catch { /* non-fatal for hooks */ }
+  process.exit(0);
+}
 
 if (process.argv.includes("--doctor")) {
   const d = doctor();

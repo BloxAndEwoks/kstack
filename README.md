@@ -107,6 +107,10 @@ disposition with evidence posted on its own thread; nothing pending at `land`.
 - `comment_add` / `comment_reply` / `comment_resolve` — the inline-comment
   channel (the `addComment`/`listComments`/`resolveComments` equivalent),
   provisioned over `gh`
+- `watch` — diffs remote PR state against a stored snapshot (new comments,
+  newly-failing checks, pending findings). Wired to the `Stop` hook, so PR
+  traffic surfaces between turns during an active session — the local
+  approximation of the cloud's standing monitor
 
 Hosts without plugin MCP: the skills fall back to `gh` + the same store files —
 the store is plain JSON, no tool required. `node mcp/review-state.mjs --doctor`

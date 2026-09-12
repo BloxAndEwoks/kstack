@@ -49,6 +49,22 @@ isolation (parallel work, a dirty main checkout, destructive experiments):
 git worktree add ../<repo>-<slug> -b <type>/<slug>
 ```
 
+A fresh worktree contains **only tracked files** — gitignored env files
+(`.env`, `.env.local`, credentials, local config) do not follow it. After
+creating the worktree, carry them across explicitly:
+
+```bash
+# copy (or symlink, for secrets that must stay live) each env file
+for f in .env .env.local .env.*.local; do
+  [ -f "$f" ] && cp "$f" "../<repo>-<slug>/$f"
+done
+```
+
+Same for any gitignored fixture or data file the unit's surface needs — check
+`git status --ignored` in the main checkout for what won't be there. If the repo
+has `run-commands` entries with `runOn: "worktreeCreated"`, they may already
+cover this — check `.vscode/tasks.json` first.
+
 Branch naming: `<type>/<slug>` where type is the playbook name (`feature/`, `fix/`,
 `perf/`, `docs/`, `chore/`, `investigate/`, `stack/`). Two to five words, lowercase,
 hyphenated. The worktree keeps the unit's blast radius out of the user's checkout —
