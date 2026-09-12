@@ -1,105 +1,183 @@
 # kstack
 
-A portable build discipline, earned in production round by round and distilled into a tool.
-One command — `/kstack-init` — installs it into a repo by **generating** that repo's own
-procedure file, docs spine, and finding ledger. Nothing is ever copied between repos — kstack
-is self-contained, and so is every repo it initializes. The reasoning behind every rule lives
-in `PHILOSOPHY.md`.
+The bookended PR loop, portable to any agent host that reads `SKILL.md`.
 
-## The shape of the discipline
+**`task → worktree → commits → PR → normalized review → merge-ready handoff`**
 
-Per unit of work (a unit = the body of work answering one named goal, one to five commits):
+In a repo with its own process file and router, `loop` yields — the repo's
+process runs, and kstack's skills remain available as a toolbox inside it.
 
-1. **Premortem** before building — assume it shipped and failed, work backward; cluster the
-   scenarios into classes; a facts-before-verbs row per new fact.
-2. **Build test-first** against those classes.
-3. **Simplify** after building — four lenses: reuse, simplification, efficiency, altitude.
-4. **Verify, then certify** — 4a: a ledger-driven verification sweep on EVERY unit; 4b: an
-   independent external model certifies gated units (money, lifecycle, customer-facing,
-   custody, migrations — unsure ⇒ gated).
-5. **Triage before remediating** — cluster by mechanism; missing GUARD / missing FACT / wrong
-   MODEL; fix the class, never one guard per finding.
-5b. **Close the unit** — distill the round's findings into the finding ledger by Bennett's
-   razor (the weakest statement still sufficient); promote enforcement media; the loop
-   self-checks for anchoring.
-6. **Drive the changed user-facing behavior** as a user experiences it.
-7. **Commit** as the system of record.
+Devin's cloud sessions work this way: an isolated environment, a PR as the output
+artifact, an independent review pass, and the owner merges. This plugin reproduces
+that loop as skills + an MCP server, so the same discipline runs in Devin CLI,
+Devin Desktop, Claude Code, Cursor, or any agent that speaks plugins and MCP.
 
-## The three-layer law
+## What it is not
 
-- **Method is carried.** The skills and templates in this repo are project-agnostic and travel
-  as-is.
-- **Instantiation is generated.** A repo's AGENTS.md — its commands, machine constraints, gated
-  scopes — is written by `/kstack-init` from *that repo's* discovered facts, never copied from
-  another repo.
-- **Evidence is earned.** The generated finding ledger ships EMPTY — kstack carries the
-  mechanism (the razor, the regeneration forks, the media ranking); a repo's lessons are minted
-  at its own unit closes, from its own findings, and are never seeded from another repo. Until
-  lessons exist, the sweep falls back to `/adversarial-audit`'s generic falsification classes
-  (the young-ledger bootstrap in `PHILOSOPHY.md`).
+It is not a process framework. No ledger, no mandatory subagent fan-out, no
+reflection step between the work and the PR. The loop is thin on purpose — the
+previous incarnation of this idea grew recursive meta-machinery and spiraled.
+Depth is opt-in and lives in the repo's own rules.
 
-## Layout
+## Requirements — not optional
 
-```
-PHILOSOPHY.md         why every rule is the way it is — read this first
-skills/
-  kstack-init/        the installer: interview wave → owner Q&A → generate
-  premortem/          step 1 — prospective-hindsight failure hunt (engineering mode included)
-  simplify/           step 3 — the four cleanup lenses (self-contained; no harness built-in needed)
-  verify-sweep/       step 4a — the ledger-driven per-unit verification sweep
-  external-review/    step 4b — the independent Codex gate (SKILL.md + external-review.sh)
-  close-unit/         step 5b — the self-improvement close (razor, forks, loop self-check)
-  adversarial-audit/  the generic falsification catalogue — the sweep's floor while the
-                      ledger is young, and standalone verification for non-kstack repos
-  create-verification-skill/  generates verify-<project>: the consumer-surface feature map +
-                      driver (step 6's mechanism); every generated skill carries its own
-                      MAINTAIN mode, so maintenance needs no second generator
-templates/
-  AGENTS.template.md            the procedure file kstack-init fills per-repo
-  finding-ledger.template.md    the ledger mechanism — ships with an EMPTY lesson list
-  docs/                         docs-spine skeletons: 000-index (with the band map),
-                                001-current-state, and the in-band doc-type templates
-                                (ADR, PRD, probe) seeded into each cadence band
+kstack's QA layer is mechanical only where these exist. A host without them
+degrades to the prose instructions — the loop still reads, but findings,
+comments, watch, and merge-readiness lose their teeth.
+
+- **`git`** — everywhere.
+- **`gh` CLI, authenticated** — the comment channel, `watch`, `fix-ci`, and
+  `land` all speak GitHub through it. If the agent can't do this itself:
+  ```bash
+  brew install gh        # or your package manager
+  gh auth login          # browser flow; needs repo + pull-requests scopes
+  ```
+- **`node`** (≥ 18) — runs the MCP server. `node --version` to check.
+- **The `kstack` MCP server wired** — declared per-manifest, but if your host
+  didn't start it, add it manually:
+  ```bash
+  devin mcp add kstack -- node <path-to-plugin>/mcp/review-state.mjs
+  # Claude Code: claude mcp add kstack -- node <path>/mcp/review-state.mjs
+  # Codex: mcp_servers in ~/.codex/config.toml — [mcp_servers.kstack]
+  #        command = "node", args = ["<path>/mcp/review-state.mjs"]
+  ```
+  Verify any time: `node <path>/mcp/review-state.mjs --doctor` prints what's
+  wired and what's missing, with fix guidance. The same check exists three
+  ways: the CLI flag (works even when the server won't start), the `doctor`
+  MCP tool, and the `/kstack:doctor` skill — the entry point for when the MCP
+  layer itself is the thing that's down.
+
+## Install
+
+```bash
+# Devin CLI / Desktop (requires devin auth login; plugins are closed beta)
+devin plugins install BloxAndEwoks/kstack
+# or, for authoring, a local path:
+devin plugins install ~/Documents/kstack
 ```
 
-## Installing
-
-**As a Claude Code plugin:** add this repo as a plugin (skills resolve as `/kstack:<name>`,
-e.g. `/kstack:kstack-init`).
-
-**As user-level skills:** copy `skills/*` into `~/.claude/skills/` (skills resolve as
-`/<name>`, e.g. `/kstack-init`).
-
-**In Cursor:** the same checkout carries `.cursor-plugin/plugin.json`, so it installs as a
-Cursor plugin with the identical skills.
-
-**In non-Claude-Code environments** (Cursor, Codex, any agent that reads markdown): the skills
-are plain markdown procedures — point the agent at `skills/<name>/SKILL.md` and it follows the
-steps directly. `skills/simplify/SKILL.md` is deliberately self-contained for exactly this
-case (in Claude Code it shadows a built-in; elsewhere it IS the pass). The generated AGENTS.md
-in the target repo is the universal entry point — Cursor and Codex read it natively.
-
-The external gate needs the Codex CLI installed and logged in (`brew install codex`,
-`codex login`). Where it is unavailable, `/kstack-init` records the gap in the generated
-AGENTS.md rather than letting it be silently skipped.
-
-## Quick start
-
-```
-cd your-repo
-/kstack-init          # (or /kstack:kstack-init as a plugin)
+```bash
+# Codex — via a marketplace catalog:
+codex plugin marketplace add BloxAndEwoks/kstack
+# then install "kstack" from the plugin browser, or point a marketplace entry
+# at this folder in .agents/plugins/marketplace.json (repo) or
+# ~/.agents/plugins/marketplace.json (personal)
 ```
 
-On an existing repo it runs a read-only interview wave over the codebase, asks the owner only
-what code cannot answer, then generates `AGENTS.md`, `docs/`, the finding ledger, and
-`scripts/external-review.sh`. On a greenfield repo it is a short Q&A plus defaults. The first
-real unit you build is the init's acceptance test — and its close mints the repo's first
-ledger lessons.
+```text
+# Claude Code — as a plugin repo, or copy/symlink the skill dirs into
+# .claude/skills/ for repo-scoped use.
+# Cursor — .cursor-plugin manifest; rules/skills per its plugin support.
+```
 
-## Provenance
+Agent Plugins 1.0.0 root manifest (`plugin.json`, closed spec schema) plus the
+spec's `mcp.json` MCP declaration — spec-compliant hosts load both.
+`.devin-plugin/`, `.claude-plugin/`, `.codex-plugin/`, and `.cursor-plugin/`
+manifests cover the native formats, each declaring the server inline with that
+host's own path convention (Codex: relative `cwd`; Claude: `${CLAUDE_PLUGIN_ROOT}`;
+Devin: `${PLUGIN_ROOT}`).
 
-The verification-skill discipline descends from pstack's create/maintain-verification-skill
-pair (MIT, Lauren Tan — github.com/cursor/plugins), hardened by a production port before it
-landed here; the feature-map example under
-`skills/create-verification-skill/references/` is adapted from pstack's. The rest of the
-discipline was earned in production and distilled by the rules in `PHILOSOPHY.md`.
+**Verified host loading** (as of this branch):
+
+- **Codex** — full pass: `codex plugin marketplace add` + `codex plugin add`
+  installs it, `codex mcp list` shows `kstack` enabled with the server resolved
+  to the plugin cache path and `PLUGIN_ROOT`/`PLUGIN_DATA` injected, and the
+  plugin `AGENTS.md` loads as an always-on rule.
+- **Claude Code** — `claude plugin validate` passes; session-level loading via
+  `claude --plugin-dir <path>` (needs a signed-in CLI).
+- **Devin** — `devin plugins install <path>` once authenticated.
+- **Cursor** — `.cursor-plugin` is IDE-side; the reliable path is the always-on
+  `AGENTS.md` + a manual `mcp`/`--add-mcp` entry for the server.
+
+## Invoke
+
+Entry point is the router:
+
+```text
+/kstack:unit add retry-with-backoff to the engine worker
+```
+
+A unit can also arrive from a spec — `/kstack:unit PRD-auth phase 2`. Author the
+PRD however your harness plans (native plan mode, free-flow, by hand); the
+plugin owns the artifact's *shape* (`templates/PRD.template.md` — requirements,
+non-goals, acceptance, ordered phases), the harness owns the modality. The
+router consumes the PRD; it doesn't police how it was written.
+
+or let the host auto-route — every skill description declares when it fires
+("route a task", "failed checks", "review this"). The bookend skills are also
+directly callable: `/kstack:open-pr`, `/kstack:review`, `/kstack:review-loop`,
+`/kstack:fix-ci`, `/kstack:sync`, `/kstack:land`, `/kstack:verify`,
+`/kstack:learn`, `/kstack:commit`, `/kstack:update-pr`, `/kstack:merge`,
+`/kstack:sync-upstream`, `/kstack:run-commands`. On Codex, `@kstack` invokes the
+plugin explicitly.
+
+## The surface
+
+| piece | what it does |
+|---|---|
+| `/kstack:unit` | Router — captures BASE, opens the worktree, matches a playbook |
+| `loop/playbooks/` | `feature` `bugfix` `perf` `docs` `chore` `investigate` `stack` |
+| `/kstack:commit` | Convention-matched commits |
+| `/kstack:open-pr` `/kstack:update-pr` | PR open/update with the Summary + Verification body contract |
+| `/kstack:review` | The independent review pass — Devin Review's taxonomy locally |
+| `/kstack:review-loop` | Normalizes every review source into findings; dispositions each |
+| `/kstack:verify` | The verification contract — two seats (pre-design look, post-build drive), self-maintaining at the point of use: bootstraps when absent, health-checks when present, drifts fork to recipe-fix or product-finding |
+| `/kstack:fix-ci` | Failed-check triage: real failure vs infra flake vs stale |
+| `/kstack:sync` `/kstack:sync-upstream` | Upstream sync/publish; upstream-wins rebases |
+| `/kstack:merge` `/kstack:land` | Local merge; merge-readiness gate + owner handoff |
+| `/kstack:run-commands` | Session run-command setup (`tasks.json` + `worktreeCreated`) |
+| `/kstack:learn` | Durable learning capture to the repo's rules/docs/skills |
+| `agents/reviewer` | Non-author reviewer subagent profile (local hosts) |
+| `kstack` MCP server | `session_context` + the findings store for any harness |
+| `loop/references/testing.md` | Testing doctrine — behavior-first, the AI failure modes, suite health, perf-testing rules; cited by playbooks, the reviewer, and the repo template |
+| `templates/AGENTS.template.md` | Minimal repo profile for repos without one — `loop` offers it once, only when no procedure file exists |
+
+## The QA layer
+
+The spine is the **finding schema** (`skills/review-loop/references/finding-schema.md`)
+— Devin Review's protocol made portable: kinds `bug`/`security`/`flag`, severities
+per kind, `confidence`, `cwe`, `based_on_repo_rules`, and terminal dispositions
+(`fixed`/`refuted`/`deferred`/`accepted-risk`/`dismissed`). Adapters normalize
+Devin Review markers, CodeRabbit, and raw comments into it. Every finding gets a
+disposition with evidence posted on its own thread; nothing pending at `land`.
+
+## The MCP server
+
+`mcp/review-state.mjs` is a zero-dependency Node stdio server. Declared inline in
+each manifest using that host's own mechanism — `cwd: "."` + relative args on
+Devin and Codex, `${CLAUDE_PLUGIN_ROOT}` on Claude Code, `${PLUGIN_ROOT}` on
+Agent-Plugins-spec hosts. Plugin MCP servers spawn with `cwd` = plugin root, so
+every tool also accepts a `path` argument (the agent's workspace) and falls back
+through `DEVIN_PROJECT_DIR` → `CLAUDE_PROJECT_DIR` → `CODEX_PROJECT_ROOT` →
+process cwd. Tools:
+
+- `session_context` — repo/branch/BASE/PR ground truth in one call
+- `doctor` — wiring check (node, git, gh, gh auth) with fix guidance
+- `finding_add` / `finding_list` / `finding_dispose` / `review_state` — the
+  normalized findings store at `.kstack/review/<key>.json` in the consuming repo
+- `comments_pull` — fetch + normalize every PR comment through the adapters *in
+  code*, folding `✅ Resolved` replies into dispositions
+- `comment_add` / `comment_reply` / `comment_post` / `comment_resolve` /
+  `comment_delete` — the full comment channel (inline findings, thread replies,
+  top-level verdicts, resolution, deletion — the cloud `addComment`/
+  `listComments`/`resolveComments`/`deleteComments` equivalents) over `gh`;
+  all exercised live against this repo's own PR
+- `watch` — diffs remote PR state against a stored snapshot (new comments,
+  newly-failing checks, pending findings). Wired to the `Stop` hook, so PR
+  traffic surfaces between turns during an active session — the local
+  approximation of the cloud's standing monitor
+- `ledger_append` — the land-time record: one committed JSONL row per unit in
+  `.kstack/ledger.jsonl` (findings, mechanisms, dispositions, verdict, verified
+  surfaces) plus the full findings snapshot in `.kstack/archive/`. This is the
+  queryable index over units that merged-PR pages can't give you —
+  `jq` the ledger, read the archive for detail
+
+State layering: **PR = the conversation, `.kstack/ledger.jsonl` = the index over
+conversations, `AGENTS.md` = distilled lessons** (via `learn`). Live working sets
+(`.kstack/review/`) stay local; records commit. On-demand document templates
+(PRD, ADR, ops note) live in `templates/` — triggered when warranted, never
+mandated; see `skills/unit/references/artifacts.md`.
+
+Hosts without plugin MCP: the skills fall back to `gh` + the same store files —
+the store is plain JSON, no tool required. `node mcp/review-state.mjs --doctor`
+reports the wiring on any host.

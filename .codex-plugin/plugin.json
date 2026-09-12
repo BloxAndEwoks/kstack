@@ -1,0 +1,46 @@
+{
+  "name": "kstack",
+  "version": "1.0.0",
+  "description": "The bookended PR loop, portable: task -> worktree -> commits -> PR -> normalized review -> merge-ready handoff. Router + playbooks + the QA finding protocol, plus an MCP server that gives any agent the review-state tools the cloud harness has.",
+  "author": {
+    "name": "keivan"
+  },
+  "license": "MIT",
+  "keywords": [
+    "pr-loop",
+    "review",
+    "agent-workflow",
+    "qa"
+  ],
+  "repository": "https://github.com/BloxAndEwoks/kstack",
+  "skills": "./skills/",
+  "hooks": "./hooks.json",
+  "mcpServers": {
+    "kstack": {
+      "command": "node",
+      "args": [
+        "mcp/review-state.mjs"
+      ],
+      "cwd": "."
+    }
+  },
+  "interface": {
+    "displayName": "kstack",
+    "shortDescription": "The bookended PR loop for any agent",
+    "longDescription": "Routes tasks through worktree isolation, PR creation, normalized multi-source review (bug/security/flag findings with mechanism-first triage), and a merge-readiness gate. Ships a zero-dependency MCP server for session context and the findings store.",
+    "developerName": "keivan",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "/kstack:loop \u2014 route this task through the PR loop",
+      "Run the review pass on this PR and normalize the findings",
+      "Check merge-readiness and hand off"
+    ],
+    "prompts": [
+      "/kstack:unit \u2014 route this task through the PR loop"
+    ]
+  }
+}

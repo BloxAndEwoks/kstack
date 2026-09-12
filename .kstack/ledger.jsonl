@@ -1,0 +1,1 @@
+{"pr":1,"key":"1","branch":"rebuild/universal-loop","sha":"84d1d5b7fd7456401ef90f539d25eb82ceef49a5","findings":3,"by_kind":{"flag":3},"by_mechanism":{},"by_disposition":{"dismissed":1,"pending":2},"pending_at_land":2,"verdict":"PASS+NOTES","surfaces_verified":["github-pr-channel"],"notes":"live channel test","landed_at":"2026-09-12T12:16:47.113Z"}

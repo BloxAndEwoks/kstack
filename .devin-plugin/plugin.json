@@ -17,7 +17,7 @@
     "kstack": {
       "command": "node",
       "args": [
-        "${CLAUDE_PLUGIN_ROOT}/mcp/review-state.mjs"
+        "${PLUGIN_ROOT}/mcp/review-state.mjs"
       ]
     }
   }

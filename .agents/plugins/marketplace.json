@@ -1,0 +1,11 @@
+{
+  "name": "kstack",
+  "interface": { "displayName": "kstack" },
+  "plugins": [
+    {
+      "name": "kstack",
+      "source": { "source": "url", "url": "https://github.com/BloxAndEwoks/kstack" },
+      "interface": { "displayName": "kstack" }
+    }
+  ]
+}
