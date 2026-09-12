@@ -35,7 +35,7 @@
       "Write"
     ],
     "defaultPrompt": [
-      "/kstack:loop \u2014 route this task through the PR loop",
+      "/kstack:unit \u2014 route this task through the PR loop",
       "Run the review pass on this PR and normalize the findings",
       "Check merge-readiness and hand off"
     ],
