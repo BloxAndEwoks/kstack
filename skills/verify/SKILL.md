@@ -16,9 +16,11 @@ run is the police.
 1. **The repo's own `verify-*` skill.** If the repo ships one (e.g.
    `.claude/skills/verify-<project>/`), it is the contract — it knows the real
    surface. Run it as written. Nothing below substitutes for it.
-2. **A verification contract file** — `VERIFY.md` or `.kstack/verify.md` in the
-   repo root. The repo's stated answers: how to provision, how to launch, what
-   the real surfaces are, what "driven" means.
+2. **A verification contract file** — `VERIFY.md` at the repo root (committed,
+   canonical) or `.kstack/verify.md`. The repo's stated answers: how to
+   provision, how to launch, what the real surfaces are, what "driven" means.
+   The contract is repo knowledge — it belongs in git so every checkout and
+   session sees it.
 3. **CI workflows** — `.github/workflows/*.yml`. CI is the canonical machine-
    readable "what must pass": the job steps are the check suite. Run them locally
    in the same order.
@@ -40,9 +42,10 @@ run is the police.
 
 **Absent → bootstrap.** When the lookup chain bottoms out at tooling discovery
 and the repo has a shipped surface (a dev/serve/CLI entry point exists), the run
-writes `.kstack/verify.md` itself: the discovered launch commands, the check
-suite, and the one surface this unit touched with its entry point. Mechanical,
-not a judgment call. A repo that cannot state how to launch its own surface is a
+writes `VERIFY.md` at the repo root itself — committed, since it is repo
+knowledge, not session state: the discovered launch commands, the check suite,
+and the one surface this unit touched with its entry point. Mechanical, not a
+judgment call. A repo that cannot state how to launch its own surface is a
 finding about the repo — say so and fix it here.
 
 **Present → health-check first.** Before driving, cheaply verify the contract:

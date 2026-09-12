@@ -17,6 +17,12 @@ description: The merge-readiness gate and owner handoff for a PR. Checks green, 
    `review-loop`.
 4. **The diff is the unit.** `git log <base>..HEAD` contains only this unit's
    commits; `gh pr view` shows the right base.
+5. **The record is written.** `ledger_append` — one row to the committed
+   `.kstack/ledger.jsonl` (findings, mechanisms, dispositions, verdict, verified
+   surfaces) plus the full findings snapshot to `.kstack/archive/<key>.json`,
+   committed with the unit's final commit. This is what outlives the merged PR:
+   the queryable index over every unit the repo has landed. No ledger row means
+   the unit lands without a durable record — don't skip it.
 
 ## The handoff
 

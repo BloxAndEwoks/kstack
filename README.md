@@ -142,6 +142,17 @@ process cwd. Tools:
   newly-failing checks, pending findings). Wired to the `Stop` hook, so PR
   traffic surfaces between turns during an active session — the local
   approximation of the cloud's standing monitor
+- `ledger_append` — the land-time record: one committed JSONL row per unit in
+  `.kstack/ledger.jsonl` (findings, mechanisms, dispositions, verdict, verified
+  surfaces) plus the full findings snapshot in `.kstack/archive/`. This is the
+  queryable index over units that merged-PR pages can't give you —
+  `jq` the ledger, read the archive for detail
+
+State layering: **PR = the conversation, `.kstack/ledger.jsonl` = the index over
+conversations, `AGENTS.md` = distilled lessons** (via `learn`). Live working sets
+(`.kstack/review/`) stay local; records commit. On-demand document templates
+(PRD, ADR, ops note) live in `templates/` — triggered when warranted, never
+mandated; see `skills/loop/references/artifacts.md`.
 
 Hosts without plugin MCP: the skills fall back to `gh` + the same store files —
 the store is plain JSON, no tool required. `node mcp/review-state.mjs --doctor`

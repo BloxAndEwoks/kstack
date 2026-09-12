@@ -96,8 +96,9 @@ function loadStore(key, path) {
 }
 
 function ensureExcluded(path) {
-  // The store defaults to local-only: exclude it per-checkout via
-  // .git/info/exclude without touching the repo's .gitignore.
+  // Local-only state (live review working sets, locks) is excluded per-checkout
+  // via .git/info/exclude — the ledger, archive, and verify contract are
+  // committed records and stay visible to git.
   try {
     const cwd = resolveCwd(path);
     const gitDir = git(["rev-parse", "--git-dir"], cwd);
@@ -105,11 +106,67 @@ function ensureExcluded(path) {
       const root = git(["rev-parse", "--show-toplevel"], cwd);
       const excludePath = join(root, gitDir, "info", "exclude");
       const existing = existsSync(excludePath) ? readFileSync(excludePath, "utf8") : "";
-      if (!existing.split("\n").some(l => l.trim() === ".kstack/")) {
-        writeFileSync(excludePath, existing.replace(/\n?$/, "\n") + ".kstack/\n");
+      if (!existing.split("\n").some(l => l.trim() === ".kstack/review/")) {
+        writeFileSync(excludePath, existing.replace(/\n?$/, "\n") + ".kstack/review/\n");
       }
     }
   } catch { /* non-fatal: store still works, just not auto-excluded */ }
+}
+
+function repoRoot(path) {
+  const root = git(["rev-parse", "--show-toplevel"], resolveCwd(path));
+  if (!root) throw new Error("not inside a git repository");
+  return root;
+}
+
+// ---------- committed ledger ----------
+// The durable cross-unit record: one JSONL line per landed unit plus a full
+// findings snapshot per PR. Written at land, committed to the repo — the
+// index over what would otherwise be buried in closed PRs.
+
+function ledgerAppend(key, pr, opts, path) {
+  const root = repoRoot(path);
+  const dir = join(root, ".kstack");
+  const archiveDir = join(dir, "archive");
+  mkdirSync(archiveDir, { recursive: true });
+
+  const store = loadStore(key ?? String(pr), path);
+  const sha = git(["rev-parse", "HEAD"], root);
+  const branch = git(["branch", "--show-current"], root);
+
+  const byKind = {}, byMech = {}, byDisp = {};
+  for (const f of store.findings) {
+    byKind[f.kind] = (byKind[f.kind] ?? 0) + 1;
+    if (f.mechanism) byMech[f.mechanism] = (byMech[f.mechanism] ?? 0) + 1;
+    byDisp[f.disposition] = (byDisp[f.disposition] ?? 0) + 1;
+  }
+  const pending = store.findings.filter(f => f.disposition === "pending").length;
+
+  const row = {
+    pr: pr ?? null,
+    key: store.key,
+    branch: branch ?? null,
+    sha,
+    findings: store.findings.length,
+    by_kind: byKind,
+    by_mechanism: byMech,
+    by_disposition: byDisp,
+    pending_at_land: pending,
+    verdict: opts?.verdict ?? reviewState(store.key, path).suggested_verdict,
+    surfaces_verified: opts?.surfaces_verified ?? [],
+    notes: opts?.notes ?? null,
+    landed_at: new Date().toISOString(),
+  };
+
+  // append-only: one line per unit; a re-append for the same key is a new row
+  const line = JSON.stringify(row) + "\n";
+  const ledgerPath = join(dir, "ledger.jsonl");
+  writeFileSync(ledgerPath, (existsSync(ledgerPath) ? readFileSync(ledgerPath, "utf8") : "") + line);
+
+  const archivePath = join(archiveDir, `${store.key.replace(/[^a-zA-Z0-9._-]/g, "-")}.json`);
+  writeFileSync(archivePath, JSON.stringify(store, null, 2) + "\n");
+
+  return { ledger: ".kstack/ledger.jsonl", archive: `.kstack/archive/${store.key}.json`, row };
 }
 
 // Serialize read-modify-write on a store file. mkdirSync is atomic create —
@@ -607,6 +664,22 @@ const TOOLS = [
     },
   },
   {
+    name: "ledger_append",
+    description: "Land-time record: appends one JSONL row to the committed .kstack/ledger.jsonl (findings, mechanisms, dispositions, verdict, verified surfaces) and snapshots the findings store to .kstack/archive/<key>.json. The durable cross-unit index — call it at land before merging.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        key: { type: "string", description: "defaults to the PR number" },
+        pr: { type: "number" },
+        verdict: { type: "string", description: "PASS | PASS+NOTES | FAIL — defaults to computed" },
+        surfaces_verified: { type: "array", items: { type: "string" }, description: "real surfaces driven for this unit" },
+        notes: { type: "string" },
+        repo_path: { type: "string", description: "absolute path to the consuming repo — your workspace root" },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
     name: "doctor",
     description: "Check the wiring: node, git, gh CLI, gh auth, repo context. Run first in any session that will touch a PR — reports exactly what is missing and how to fix it.",
     inputSchema: { type: "object", properties: { repo_path: { type: "string", description: "absolute path to the consuming repo — your workspace root" } }, additionalProperties: false },
@@ -636,6 +709,7 @@ function callTool(name, args) {
     case "comment_reply": return textResult(commentReply(args.comment_id, args.body, args.repo_path));
     case "comment_resolve": return textResult(commentResolve(args.thread_id, args.repo_path));
     case "watch": return textResult(watch(args.key, args.repo_path));
+    case "ledger_append": return textResult(ledgerAppend(args.key, args.pr, { verdict: args.verdict, surfaces_verified: args.surfaces_verified, notes: args.notes }, args.repo_path));
     case "doctor": return textResult(doctor(args.repo_path));
     default: throw new Error(`unknown tool: ${name}`);
   }
@@ -687,6 +761,7 @@ if (process.argv.includes("--self-test")) {
   const dir = mkdtempSync(join(tmpdir(), "kstack-test-"));
   execFileSync("git", ["init", "-q"], { cwd: dir });
   execFileSync("git", ["remote", "add", "origin", "git@github.com:acme/widgets.git"], { cwd: dir });
+  execFileSync("git", ["commit", "-qm", "init", "--allow-empty"], { cwd: dir, env: { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@t", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@t" } });
   chdir(dir);
 
   let pass = 0, fail = 0;
@@ -741,6 +816,23 @@ if (process.argv.includes("--self-test")) {
   const f3 = addFinding("k2", { kind: "security", severity: "low", path: "c.ts", title: "minor" });
   t("non-blocking security → PASS+NOTES", reviewState("k2").suggested_verdict === "PASS+NOTES");
   t("repoSlug ssh form", repoSlug() === "acme/widgets");
+
+  // --- ledger + archive ---
+  disposeFinding("k2", f3.id, "fixed", "sha abc");
+  const l = ledgerAppend("k2", 42, { surfaces_verified: ["web"] });
+  t("ledger path committed-visible", l.ledger === ".kstack/ledger.jsonl");
+  const ledgerText = readFileSync(join(dir, ".kstack", "ledger.jsonl"), "utf8");
+  const rows = ledgerText.trim().split("\n").map(JSON.parse);
+  t("one ledger row appended", rows.length === 1);
+  t("row carries pr/sha/counts", rows[0].pr === 42 && !!rows[0].sha && rows[0].findings === 1);
+  t("row aggregates mechanism/disp", rows[0].by_disposition.fixed === 1);
+  t("row verdict computed", rows[0].verdict === "PASS");
+  t("surfaces recorded", rows[0].surfaces_verified.includes("web"));
+  const archive = JSON.parse(readFileSync(join(dir, ".kstack", "archive", "k2.json"), "utf8"));
+  t("archive holds full findings", archive.findings.length === 1 && archive.findings[0].title === "minor");
+  ledgerAppend("k2", 42, {});
+  const rows2 = readFileSync(join(dir, ".kstack", "ledger.jsonl"), "utf8").trim().split("\n");
+  t("re-append is a new row (append-only)", rows2.length === 2);
 
   process.stdout.write(`self-test: ${pass} passed, ${fail} failed\n`);
   process.exit(fail ? 1 : 0);

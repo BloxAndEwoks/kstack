@@ -14,9 +14,18 @@ authority on this repo's specifics.
 
 ## Verification
 
-The verification contract lives at `.kstack/verify.md` (or `VERIFY.md`) —
-`/kstack:verify` bootstraps it on first use and health-checks it on every use.
-The real surfaces this repo ships and how to drive them: <list them>.
+The verification contract lives at `VERIFY.md` (committed) — `/kstack:verify`
+bootstraps it on first use and health-checks it on every use. The real surfaces
+this repo ships and how to drive them: <list them>.
+
+## Records
+
+Each landed unit appends a row to the committed `.kstack/ledger.jsonl`
+(findings, mechanisms, dispositions, verdict, verified surfaces) and archives
+its full finding set to `.kstack/archive/` — the queryable index over units.
+Larger artifacts (PRD/ADR/ops) come from the kstack `templates/` on demand —
+see the plugin's `skills/loop/references/artifacts.md` for when each earns
+its file.
 
 ## Machine constraints
 
