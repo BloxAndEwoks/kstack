@@ -19,6 +19,32 @@ reflection step between the work and the PR. The loop is thin on purpose — the
 previous incarnation of this idea grew recursive meta-machinery and spiraled.
 Depth is opt-in and lives in the repo's own rules.
 
+## Requirements — not optional
+
+kstack's QA layer is mechanical only where these exist. A host without them
+degrades to the prose instructions — the loop still reads, but findings,
+comments, watch, and merge-readiness lose their teeth.
+
+- **`git`** — everywhere.
+- **`gh` CLI, authenticated** — the comment channel, `watch`, `fix-ci`, and
+  `land` all speak GitHub through it. If the agent can't do this itself:
+  ```bash
+  brew install gh        # or your package manager
+  gh auth login          # browser flow; needs repo + pull-requests scopes
+  ```
+- **`node`** (≥ 18) — runs the MCP server. `node --version` to check.
+- **The `kstack` MCP server wired** — declared per-manifest, but if your host
+  didn't start it, add it manually:
+  ```bash
+  devin mcp add kstack -- node <path-to-plugin>/mcp/review-state.mjs
+  # Claude Code: claude mcp add kstack -- node <path>/mcp/review-state.mjs
+  # Codex: mcp_servers in ~/.codex/config.toml — [mcp_servers.kstack]
+  #        command = "node", args = ["<path>/mcp/review-state.mjs"]
+  ```
+  Verify any time: `node <path>/mcp/review-state.mjs --doctor` prints what's
+  wired and what's missing, with fix guidance. The same check is the `doctor`
+  MCP tool once the server is running.
+
 ## Install
 
 ```bash
@@ -95,8 +121,13 @@ disposition with evidence posted on its own thread; nothing pending at `land`.
 
 ## The MCP server
 
-`mcp/review-state.mjs` is a zero-dependency Node stdio server. Declared in
-`.mcp.json` (Agent Plugins) — hosts that support plugin MCP servers get:
+`mcp/review-state.mjs` is a zero-dependency Node stdio server. Declared inline in
+each manifest using that host's own mechanism — `cwd: "."` + relative args on
+Devin and Codex, `${CLAUDE_PLUGIN_ROOT}` on Claude Code, `${PLUGIN_ROOT}` on
+Agent-Plugins-spec hosts. Plugin MCP servers spawn with `cwd` = plugin root, so
+every tool also accepts a `path` argument (the agent's workspace) and falls back
+through `DEVIN_PROJECT_DIR` → `CLAUDE_PROJECT_DIR` → `CODEX_PROJECT_ROOT` →
+process cwd. Tools:
 
 - `session_context` — repo/branch/BASE/PR ground truth in one call
 - `doctor` — wiring check (node, git, gh, gh auth) with fix guidance

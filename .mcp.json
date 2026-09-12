@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "kstack": {
-      "command": "node",
-      "args": ["${PLUGIN_ROOT}/mcp/review-state.mjs"],
-      "description": "kstack review-state: session context and the normalized findings store (the listComments/addComment/resolveComments equivalent for any harness)"
-    }
-  }
-}

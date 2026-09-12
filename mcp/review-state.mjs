@@ -19,9 +19,23 @@ import { join } from "node:path";
 
 const PROTOCOL_VERSION = "2024-11-05";
 
+// ---------- repo resolution ----------
+// Plugin MCP servers spawn with cwd = PLUGIN ROOT, not the consuming repo.
+// Never trust process.cwd(): every tool accepts an optional `path` (the agent's
+// workspace — agents know their own cwd), then host env vars, then cwd.
+
+function resolveCwd(path) {
+  return path
+    ?? process.env.DEVIN_PROJECT_DIR
+    ?? process.env.CLAUDE_PROJECT_DIR
+    ?? process.env.CODEX_PROJECT_ROOT
+    ?? process.env.INIT_CWD
+    ?? process.cwd();
+}
+
 // ---------- git helpers ----------
 
-function git(args, cwd = process.cwd()) {
+function git(args, cwd = resolveCwd()) {
   try {
     return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
   } catch {
@@ -29,7 +43,7 @@ function git(args, cwd = process.cwd()) {
   }
 }
 
-function gh(args, cwd = process.cwd()) {
+function gh(args, cwd = resolveCwd()) {
   try {
     return execFileSync("gh", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
   } catch {
@@ -37,8 +51,8 @@ function gh(args, cwd = process.cwd()) {
   }
 }
 
-function sessionContext() {
-  const root = git(["rev-parse", "--show-toplevel"]);
+function sessionContext(path) {
+  const root = git(["rev-parse", "--show-toplevel"], resolveCwd(path));
   if (!root) return { error: "not inside a git repository" };
   const branch = git(["branch", "--show-current"], root);
   const head = git(["rev-parse", "HEAD"], root);
@@ -66,8 +80,8 @@ function sessionContext() {
 
 // ---------- findings store ----------
 
-function storePath(key) {
-  const root = git(["rev-parse", "--show-toplevel"]);
+function storePath(key, path) {
+  const root = git(["rev-parse", "--show-toplevel"], resolveCwd(path));
   if (!root) throw new Error("not inside a git repository");
   const safe = String(key).replace(/[^a-zA-Z0-9._-]/g, "-");
   const dir = join(root, ".kstack", "review");
@@ -75,23 +89,24 @@ function storePath(key) {
   return join(dir, `${safe}.json`);
 }
 
-function loadStore(key) {
-  const p = storePath(key);
+function loadStore(key, path) {
+  const p = storePath(key, path);
   if (!existsSync(p)) return { key, findings: [] };
   return JSON.parse(readFileSync(p, "utf8"));
 }
 
-function saveStore(key, store) {
-  const p = storePath(key);
+function saveStore(key, store, path) {
+  const p = storePath(key, path);
   const tmp = `${p}.tmp-${process.pid}`;
   writeFileSync(tmp, JSON.stringify(store, null, 2) + "\n");
   renameSync(tmp, p); // atomic: a crash leaves the previous store intact
   // The store defaults to local-only: exclude it per-checkout via
   // .git/info/exclude without touching the repo's .gitignore.
   try {
-    const gitDir = git(["rev-parse", "--git-dir"]);
+    const cwd = resolveCwd(path);
+    const gitDir = git(["rev-parse", "--git-dir"], cwd);
     if (gitDir) {
-      const root = git(["rev-parse", "--show-toplevel"]);
+      const root = git(["rev-parse", "--show-toplevel"], cwd);
       const excludePath = join(root, gitDir, "info", "exclude");
       const existing = existsSync(excludePath) ? readFileSync(excludePath, "utf8") : "";
       if (!existing.split("\n").some(l => l.trim() === ".kstack/")) {
@@ -122,10 +137,10 @@ function validateFinding(f) {
   return errors;
 }
 
-function addFinding(key, f) {
+function addFinding(key, f, path) {
   const errors = validateFinding(f);
   if (errors.length) throw new Error(errors.join("; "));
-  const store = loadStore(key);
+  const store = loadStore(key, path);
   const seq = String(store.findings.length + 1).padStart(4, "0");
   const prefix = { bug: "BUG", security: "SEC", flag: "FLG" }[f.kind];
   const finding = {
@@ -152,25 +167,25 @@ function addFinding(key, f) {
     resolved_at: null,
   };
   store.findings.push(finding);
-  saveStore(key, store);
+  saveStore(key, store, path);
   return finding;
 }
 
-function disposeFinding(key, id, disposition, detail) {
+function disposeFinding(key, id, disposition, detail, path) {
   if (!DISPOSITIONS.includes(disposition) || disposition === "pending")
     throw new Error(`disposition must be a terminal one of: ${DISPOSITIONS.filter(d => d !== "pending").join(", ")}`);
-  const store = loadStore(key);
+  const store = loadStore(key, path);
   const finding = store.findings.find(x => x.id === id);
   if (!finding) throw new Error(`no finding with id ${id}`);
   finding.disposition = disposition;
   finding.disposition_detail = detail ?? null;
   finding.resolved_at = new Date().toISOString();
-  saveStore(key, store);
+  saveStore(key, store, path);
   return finding;
 }
 
-function reviewState(key) {
-  const store = loadStore(key);
+function reviewState(key, path) {
+  const store = loadStore(key, path);
   const by = (fn) => store.findings.reduce((m, f) => { const k = fn(f); m[k] = (m[k] ?? 0) + 1; return m; }, {});
   const pending = store.findings.filter(f => f.disposition === "pending");
   const openSevere = pending.filter(f =>
@@ -194,15 +209,15 @@ function reviewState(key) {
 // deleteComments equivalent, provisioned over `gh`. comments_pull both fetches
 // and normalizes — the adapter rules run here as code, not as instructed prose.
 
-function repoSlug() {
-  const url = git(["remote", "get-url", "origin"]) ?? "";
+function repoSlug(path) {
+  const url = git(["remote", "get-url", "origin"], resolveCwd(path)) ?? "";
   const m = url.match(/[:/]([^/:]+\/[^/]+?)(?:\.git)?$/);
   if (!m) throw new Error("cannot determine owner/repo from origin remote");
   return m[1];
 }
 
-function currentPrNumber() {
-  const out = gh(["pr", "view", "--json", "number"]);
+function currentPrNumber(path) {
+  const out = gh(["pr", "view", "--json", "number"], resolveCwd(path));
   if (!out) return null;
   try { return JSON.parse(out).number; } catch { return null; }
 }
@@ -272,14 +287,15 @@ function normalizeComment(c, source) {
   };
 }
 
-function commentsPull(key, pr) {
-  const slug = repoSlug();
-  const n = pr ?? currentPrNumber();
+function commentsPull(key, pr, path) {
+  const slug = repoSlug(path);
+  const n = pr ?? currentPrNumber(path);
   if (!n) throw new Error("no PR for the current branch; pass pr explicitly");
-  const inline = JSON.parse(gh(["api", `repos/${slug}/pulls/${n}/comments`, "--paginate"]) ?? "[]");
-  const topLevel = JSON.parse(gh(["api", `repos/${slug}/issues/${n}/comments`, "--paginate"]) ?? "[]");
+  const cwd = resolveCwd(path);
+  const inline = JSON.parse(gh(["api", `repos/${slug}/pulls/${n}/comments`, "--paginate"], cwd) ?? "[]");
+  const topLevel = JSON.parse(gh(["api", `repos/${slug}/issues/${n}/comments`, "--paginate"], cwd) ?? "[]");
 
-  const store = loadStore(key ?? String(n));
+  const store = loadStore(key ?? String(n), path);
   const byId = new Map(store.findings.map(f => [f.id, f]));
   let added = 0, updated = 0;
 
@@ -309,15 +325,16 @@ function commentsPull(key, pr) {
       updated++;
     }
   }
-  saveStore(store.key, store);
+  saveStore(store.key, store, path);
   return { pr: n, total: store.findings.length, added, updated, pending: store.findings.filter(f => f.disposition === "pending").length };
 }
 
-function commentAdd(pr, f) {
-  const slug = repoSlug();
-  const n = pr ?? currentPrNumber();
+function commentAdd(pr, f, path) {
+  const slug = repoSlug(path);
+  const n = pr ?? currentPrNumber(path);
   if (!n) throw new Error("no PR for the current branch; pass pr explicitly");
-  const headSha = gh(["pr", "view", String(n), "--json", "headRefOid", "--jq", ".headRefOid"]);
+  const cwd = resolveCwd(path);
+  const headSha = gh(["pr", "view", String(n), "--json", "headRefOid", "--jq", ".headRefOid"], cwd);
   const marker = { id: f.id, kind: f.kind, severity: f.severity, confidence: f.confidence ?? "medium", based_on_repo_rules: f.based_on_repo_rules ?? false, file_path: f.path, start_line: f.start_line, end_line: f.end_line ?? f.start_line, side: f.side ?? "RIGHT" };
   const emoji = { bug: { severe: "🔴", "non-severe": "🟡" }, security: { critical: "🟥", high: "🟥", medium: "🟨", low: "🔵" }, flag: { investigate: "🔵", note: "🔵" } }[f.kind]?.[f.severity] ?? "🔵";
   const body = `<!-- kstack-finding ${JSON.stringify(marker)} -->\n\n${emoji} **${f.title}**\n\n${f.body ?? ""}${f.remediation ? `\n\nSuggested fix: ${f.remediation}` : ""}`;
@@ -330,32 +347,33 @@ function commentAdd(pr, f) {
   }
   const tmp = `${process.env.TMPDIR ?? "/tmp"}kstack-comment-${Date.now()}.json`;
   writeFileSync(tmp, JSON.stringify(payload));
-  const out = gh(["api", `repos/${slug}/pulls/${n}/comments`, "-X", "POST", "--input", tmp]);
+  const out = gh(["api", `repos/${slug}/pulls/${n}/comments`, "-X", "POST", "--input", tmp], cwd);
   if (!out) throw new Error("gh api failed posting the comment");
   const posted = JSON.parse(out);
   return { id: f.id, comment_id: posted.id, html_url: posted.html_url };
 }
 
-function commentReply(commentId, body) {
-  const slug = repoSlug();
+function commentReply(commentId, body, path) {
+  const slug = repoSlug(path);
   const tmp = `${process.env.TMPDIR ?? "/tmp"}kstack-reply-${Date.now()}.json`;
   writeFileSync(tmp, JSON.stringify({ body }));
-  const out = gh(["api", `repos/${slug}/pulls/comments/${commentId}/replies`, "-X", "POST", "--input", tmp]);
+  const cwd = resolveCwd(path);
+  const out = gh(["api", `repos/${slug}/pulls/comments/${commentId}/replies`, "-X", "POST", "--input", tmp], cwd);
   if (!out) throw new Error("gh api failed posting the reply");
   const posted = JSON.parse(out);
   return { comment_id: posted.id, html_url: posted.html_url };
 }
 
-function commentResolve(id) {
+function commentResolve(id, path) {
   // Accepts either a GraphQL thread id (PRRT_…) or a REST comment id —
   // stored thread_id values are REST comment ids, so look the thread up.
   let threadId = id;
   if (!String(id).startsWith("PRRT_")) {
-    const slug = repoSlug();
+    const slug = repoSlug(path);
     const [owner, repo] = slug.split("/");
-    const n = currentPrNumber();
+    const n = currentPrNumber(path);
     const q = `query { repository(owner:"${owner}",name:"${repo}") { pullRequest(number:${n}) { reviewThreads(first:100) { nodes { id isResolved comments(first:100) { nodes { databaseId } } } } } } }`;
-    const out = gh(["api", "graphql", "-f", `query=${q}`]);
+    const out = gh(["api", "graphql", "-f", `query=${q}`], resolveCwd(path));
     if (!out) throw new Error("graphql lookup of review threads failed");
     const threads = JSON.parse(out).data?.repository?.pullRequest?.reviewThreads?.nodes ?? [];
     const hit = threads.find(t => t.comments?.nodes?.some(c => String(c.databaseId) === String(id)));
@@ -363,7 +381,7 @@ function commentResolve(id) {
     if (hit.isResolved) return { thread_id: hit.id, isResolved: true, already: true };
     threadId = hit.id;
   }
-  const out = gh(["api", "graphql", "-f", `query=mutation { resolveReviewThread(input:{threadId:"${threadId}"}) { thread { isResolved } } }`]);
+  const out = gh(["api", "graphql", "-f", `query=mutation { resolveReviewThread(input:{threadId:"${threadId}"}) { thread { isResolved } } }`], resolveCwd(path));
   if (!out) throw new Error("gh api graphql failed");
   return JSON.parse(out);
 }
@@ -378,28 +396,29 @@ function diffWatch(seen, commentIds, failingChecks) {
 
 const FAILING_CHECK_STATES = ["FAILURE", "ERROR", "TIMED_OUT"]; // CANCELLED is infra, not a verdict
 
-function watch(key) {
+function watch(key, path) {
   // The standing-monitor equivalent for active sessions: diff remote PR state
   // against the last-seen snapshot stored alongside the findings.
-  const slug = repoSlug();
-  const n = currentPrNumber();
+  const slug = repoSlug(path);
+  const n = currentPrNumber(path);
   if (!n) return { state: "no-pr", message: "no PR for the current branch — nothing to watch" };
 
-  const prJson = gh(["pr", "view", String(n), "--json", "number,state,headRefOid"]);
+  const prJson = gh(["pr", "view", String(n), "--json", "number,state,headRefOid"], resolveCwd(path));
   const pr = prJson ? JSON.parse(prJson) : null;
   if (!pr) return { state: "no-pr", message: "no PR for the current branch" };
   if (pr.state === "MERGED" || pr.state === "CLOSED") {
-    return { state: pr.state.toLowerCase(), pr: n, quiet: true, new_comments: [], newly_failing_checks: [], pending_findings: loadStore(key ?? String(n)).findings.filter(f => f.disposition === "pending").length };
+    return { state: pr.state.toLowerCase(), pr: n, quiet: true, new_comments: [], newly_failing_checks: [], pending_findings: loadStore(key ?? String(n), path).findings.filter(f => f.disposition === "pending").length };
   }
 
-  const store = loadStore(key ?? String(n));
+  const store = loadStore(key ?? String(n), path);
   const seen = store.watch ?? { comment_ids: [], failing_checks: [], at: null };
 
-  const inline = JSON.parse(gh(["api", `repos/${slug}/pulls/${n}/comments`, "--paginate"]) ?? "[]");
-  const topLevel = JSON.parse(gh(["api", `repos/${slug}/issues/${n}/comments`, "--paginate"]) ?? "[]");
+  const cwd = resolveCwd(path);
+  const inline = JSON.parse(gh(["api", `repos/${slug}/pulls/${n}/comments`, "--paginate"], cwd) ?? "[]");
+  const topLevel = JSON.parse(gh(["api", `repos/${slug}/issues/${n}/comments`, "--paginate"], cwd) ?? "[]");
   const currentIds = [...inline, ...topLevel].map(c => c.id);
 
-  const checks = JSON.parse(gh(["pr", "checks", String(n), "--json", "name,state"]) ?? "[]");
+  const checks = JSON.parse(gh(["pr", "checks", String(n), "--json", "name,state"], cwd) ?? "[]");
   const failingNow = checks.filter(c => FAILING_CHECK_STATES.includes(c.state)).map(c => c.name);
 
   const { newCommentIds, newlyFailing, quiet } = diffWatch(seen, currentIds, failingNow);
@@ -409,7 +428,7 @@ function watch(key) {
     .map(c => ({ id: c.id, author: c.user?.login, path: c.path ?? null, preview: (c.body ?? "").replace(/<!--[\s\S]*?-->/, "").trim().slice(0, 140) }));
 
   store.watch = { comment_ids: currentIds, failing_checks: failingNow, at: new Date().toISOString() };
-  saveStore(store.key, store);
+  saveStore(store.key, store, path);
 
   return {
     pr: n,
@@ -422,17 +441,18 @@ function watch(key) {
   };
 }
 
-function doctor() {
+function doctor(path) {
+  const cwd = resolveCwd(path);
   const checks = {
     node: process.version,
-    git: git(["--version"]),
-    gh_cli: gh(["--version"])?.split("\n")[0] ?? null,
+    git: git(["--version"], cwd),
+    gh_cli: gh(["--version"], cwd)?.split("\n")[0] ?? null,
     gh_auth: null,
-    repo: git(["rev-parse", "--show-toplevel"]),
+    repo: git(["rev-parse", "--show-toplevel"], cwd),
     gh_pr_view: null,
   };
-  const auth = gh(["auth", "status"]);
-  checks.gh_auth = auth ? "ok" : (() => { try { execFileSync("gh", ["auth", "status"], { stdio: ["ignore", "pipe", "pipe"] }); return "ok"; } catch { return "missing"; } })();
+  const auth = gh(["auth", "status"], cwd);
+  checks.gh_auth = auth ? "ok" : (() => { try { execFileSync("gh", ["auth", "status"], { cwd, stdio: ["ignore", "pipe", "pipe"] }); return "ok"; } catch { return "missing"; } })();
   checks.gh_pr_view = checks.repo && checks.gh_auth === "ok" ? "ok" : "unverified";
   const missing = Object.entries(checks).filter(([k, v]) => v === null || v === "missing").map(([k]) => k);
   return { ok: missing.length === 0, checks, missing, guidance: missing.length ? "install/authenticate the missing pieces; gh CLI is required for PR I/O (brew install gh && gh auth login)" : "fully wired" };
@@ -444,7 +464,7 @@ const TOOLS = [
   {
     name: "session_context",
     description: "The unit's ground truth: repo root, branch, HEAD, base branch and BASE sha, upstream/ahead-behind, dirty files, and the PR (number/base/state) when one exists.",
-    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    inputSchema: { type: "object", properties: { path: { type: "string", description: "absolute path to the consuming repo — your workspace root" } }, additionalProperties: false },
   },
   {
     name: "finding_add",
@@ -454,6 +474,7 @@ const TOOLS = [
       required: ["key", "kind", "severity", "path", "title"],
       properties: {
         key: { type: "string", description: "PR number or branch name" },
+        path: { type: "string", description: "absolute path to the consuming repo — your workspace root" },
         kind: { type: "string", enum: KINDS },
         severity: { type: "string", description: "bug: severe|non-severe; security: critical|high|medium|low; flag: investigate|note" },
         source: { type: "string" }, confidence: { type: "string", enum: ["high", "medium", "low"] },
@@ -475,6 +496,7 @@ const TOOLS = [
       type: "object", required: ["key"],
       properties: {
         key: { type: "string" },
+        path: { type: "string", description: "absolute path to the consuming repo — your workspace root" },
         disposition: { type: "string", enum: DISPOSITIONS },
         kind: { type: "string", enum: KINDS },
         severity: { type: "string" },
@@ -488,7 +510,9 @@ const TOOLS = [
     inputSchema: {
       type: "object", required: ["key", "id", "disposition"],
       properties: {
-        key: { type: "string" }, id: { type: "string" },
+        key: { type: "string" },
+        path: { type: "string", description: "absolute path to the consuming repo — your workspace root" },
+        id: { type: "string" },
         disposition: { type: "string", enum: DISPOSITIONS.filter(d => d !== "pending") },
         detail: { type: "string" },
       },
@@ -498,14 +522,14 @@ const TOOLS = [
   {
     name: "review_state",
     description: "Summary of the review store for a key: totals, counts by kind/disposition, open blocking findings, suggested verdict (PASS / PASS+NOTES / FAIL).",
-    inputSchema: { type: "object", required: ["key"], properties: { key: { type: "string" } }, additionalProperties: false },
+    inputSchema: { type: "object", required: ["key"], properties: { key: { type: "string" }, path: { type: "string", description: "absolute path to the consuming repo — your workspace root" } }, additionalProperties: false },
   },
   {
     name: "comments_pull",
     description: "Fetch every comment on a PR (inline + top-level), normalize them into findings via the built-in adapters (Devin Review markers, CodeRabbit severity markers, raw comments), upsert into the store, and fold ✅ Resolved replies into dispositions. The normalize step runs as code here — not as instructed judgment.",
     inputSchema: {
       type: "object",
-      properties: { key: { type: "string", description: "defaults to the PR number" }, pr: { type: "number", description: "defaults to the current branch's PR" } },
+      properties: { key: { type: "string", description: "defaults to the PR number" }, pr: { type: "number", description: "defaults to the current branch's PR" }, path: { type: "string", description: "absolute path to the consuming repo — your workspace root" } },
       additionalProperties: false,
     },
   },
@@ -516,6 +540,7 @@ const TOOLS = [
       type: "object",
       required: ["kind", "severity", "path", "title", "start_line"],
       properties: {
+        path: { type: "string", description: "absolute path to the consuming repo — your workspace root" },
         pr: { type: "number" }, kind: { type: "string", enum: KINDS }, severity: { type: "string" },
         path: { type: "string" }, start_line: { type: "number" }, end_line: { type: "number" },
         side: { type: "string", enum: ["RIGHT", "LEFT"] }, title: { type: "string" },
@@ -531,7 +556,7 @@ const TOOLS = [
     description: "Reply on a finding's own comment thread — carries the disposition and its evidence (the fix SHA, the refutation, the deferral trigger).",
     inputSchema: {
       type: "object", required: ["comment_id", "body"],
-      properties: { comment_id: { type: "string" }, body: { type: "string" } },
+      properties: { comment_id: { type: "string" }, body: { type: "string" }, path: { type: "string", description: "absolute path to the consuming repo — your workspace root" } },
       additionalProperties: false,
     },
   },
@@ -540,7 +565,7 @@ const TOOLS = [
     description: "Resolve a PR review thread via GraphQL. Takes the thread id (PRRT_…), not the comment id.",
     inputSchema: {
       type: "object", required: ["thread_id"],
-      properties: { thread_id: { type: "string" } },
+      properties: { thread_id: { type: "string" }, path: { type: "string", description: "absolute path to the consuming repo — your workspace root" } },
       additionalProperties: false,
     },
   },
@@ -549,14 +574,14 @@ const TOOLS = [
     description: "Diff remote PR state against the last-seen snapshot: new comments (normalized previews), newly-failing checks, pending findings. The standing-monitor primitive — fires on hook during active sessions, or call directly on 'what changed on the PR'.",
     inputSchema: {
       type: "object",
-      properties: { key: { type: "string", description: "defaults to the PR number" } },
+      properties: { key: { type: "string", description: "defaults to the PR number" }, path: { type: "string", description: "absolute path to the consuming repo — your workspace root" } },
       additionalProperties: false,
     },
   },
   {
     name: "doctor",
     description: "Check the wiring: node, git, gh CLI, gh auth, repo context. Run first in any session that will touch a PR — reports exactly what is missing and how to fix it.",
-    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    inputSchema: { type: "object", properties: { path: { type: "string", description: "absolute path to the consuming repo — your workspace root" } }, additionalProperties: false },
   },
 ];
 
@@ -566,24 +591,24 @@ function textResult(data) {
 
 function callTool(name, args) {
   switch (name) {
-    case "session_context": return textResult(sessionContext());
-    case "finding_add": return textResult(addFinding(args.key, args));
+    case "session_context": return textResult(sessionContext(args.path));
+    case "finding_add": return textResult(addFinding(args.key, args, args.path));
     case "finding_list": {
-      const store = loadStore(args.key);
+      const store = loadStore(args.key, args.path);
       const out = store.findings.filter(f =>
         (!args.disposition || f.disposition === args.disposition) &&
         (!args.kind || f.kind === args.kind) &&
         (!args.severity || f.severity === args.severity));
       return textResult(out);
     }
-    case "finding_dispose": return textResult(disposeFinding(args.key, args.id, args.disposition, args.detail));
-    case "review_state": return textResult(reviewState(args.key));
-    case "comments_pull": return textResult(commentsPull(args.key, args.pr));
-    case "comment_add": return textResult(commentAdd(args.pr, args));
-    case "comment_reply": return textResult(commentReply(args.comment_id, args.body));
-    case "comment_resolve": return textResult(commentResolve(args.thread_id));
-    case "watch": return textResult(watch(args.key));
-    case "doctor": return textResult(doctor());
+    case "finding_dispose": return textResult(disposeFinding(args.key, args.id, args.disposition, args.detail, args.path));
+    case "review_state": return textResult(reviewState(args.key, args.path));
+    case "comments_pull": return textResult(commentsPull(args.key, args.pr, args.path));
+    case "comment_add": return textResult(commentAdd(args.pr, args, args.path));
+    case "comment_reply": return textResult(commentReply(args.comment_id, args.body, args.path));
+    case "comment_resolve": return textResult(commentResolve(args.thread_id, args.path));
+    case "watch": return textResult(watch(args.key, args.path));
+    case "doctor": return textResult(doctor(args.path));
     default: throw new Error(`unknown tool: ${name}`);
   }
 }

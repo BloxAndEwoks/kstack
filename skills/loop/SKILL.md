@@ -25,7 +25,8 @@ git status --porcelain                 # dirty state — uncommitted work is a f
 If the `kstack` MCP server is connected, `session_context` returns all of this in
 one call and `doctor` reports the wiring (node / git / gh / gh auth) — anything
 missing gets fixed before the unit starts, because the loop's later stages depend
-on it.
+on it. Pass `path` = the repo root to every kstack tool call — the server may
+spawn outside the workspace and needs to be pointed at the consuming repo.
 
 ## Step 0.5 — procedure file
 
