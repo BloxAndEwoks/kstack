@@ -10,7 +10,7 @@ who was not in the session.
 
 ## Procedure
 
-1. **Hygiene first.** The unit's `/kstack:verify` pass already ran the floor
+1. **Hygiene first.** The unit's `/kstack:verify-contract` pass already ran the floor
    (checks + the surface drive). If it hasn't run yet — run it now. Re-run the
    check suite only if the head moved since the last verify; do not duplicate
    the drive.

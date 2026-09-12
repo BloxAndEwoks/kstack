@@ -9,7 +9,7 @@ Dependencies, configuration, tooling, cleanup — work with no intended behavior
    that resolve to unvetted releases.
 3. **Behavior invariance is the test.** The suite should pass unchanged. A chore that
    needs test changes is part feature — name it.
-4. **Verify via `/kstack:verify`.** The check suite, plus any surface the chore
+4. **Verify via `/kstack:verify-contract`.** The check suite, plus any surface the chore
    actually touches — a build change gets a build; a CI change gets a run.
 5. **`/kstack:open-pr`** → **`/kstack:review`** → **`/kstack:review-loop`** →
    **`/kstack:fix-ci`** as needed → **`/kstack:land`**.
