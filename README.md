@@ -143,9 +143,11 @@ process cwd. Tools:
   normalized findings store at `.kstack/review/<key>.json` in the consuming repo
 - `comments_pull` — fetch + normalize every PR comment through the adapters *in
   code*, folding `✅ Resolved` replies into dispositions
-- `comment_add` / `comment_reply` / `comment_resolve` — the inline-comment
-  channel (the `addComment`/`listComments`/`resolveComments` equivalent),
-  provisioned over `gh`
+- `comment_add` / `comment_reply` / `comment_post` / `comment_resolve` /
+  `comment_delete` — the full comment channel (inline findings, thread replies,
+  top-level verdicts, resolution, deletion — the cloud `addComment`/
+  `listComments`/`resolveComments`/`deleteComments` equivalents) over `gh`;
+  all exercised live against this repo's own PR
 - `watch` — diffs remote PR state against a stored snapshot (new comments,
   newly-failing checks, pending findings). Wired to the `Stop` hook, so PR
   traffic surfaces between turns during an active session — the local

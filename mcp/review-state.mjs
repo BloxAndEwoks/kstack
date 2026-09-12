@@ -438,6 +438,28 @@ function commentAdd(pr, f, path) {
   return { id: f.id, comment_id: posted.id, html_url: posted.html_url };
 }
 
+function commentPost(body, pr, path) {
+  // Top-level PR comment — verdicts, summaries, notes. Issue comments don't
+  // thread; inline/reply use comment_add/comment_reply.
+  const slug = repoSlug(path);
+  const cwd = resolveCwd(path);
+  const n = pr ?? currentPrNumber(path);
+  if (!n) throw new Error("no PR for the current branch — pass pr explicitly");
+  const tmp = `${process.env.TMPDIR ?? "/tmp"}kstack-post-${Date.now()}.json`;
+  writeFileSync(tmp, JSON.stringify({ body }));
+  const posted = JSON.parse(ghWithErr(["api", `repos/${slug}/issues/${n}/comments`, "-X", "POST", "--input", tmp], cwd));
+  return { comment_id: posted.id, html_url: posted.html_url };
+}
+
+function commentDelete(commentId, kind, path) {
+  // kind: "review" for inline review comments, "issue" for top-level.
+  const slug = repoSlug(path);
+  const cwd = resolveCwd(path);
+  const endpoint = kind === "issue" ? `repos/${slug}/issues/comments/${commentId}` : `repos/${slug}/pulls/comments/${commentId}`;
+  ghWithErr(["api", endpoint, "-X", "DELETE"], cwd);
+  return { deleted: commentId, kind: kind ?? "review" };
+}
+
 function ghWithErr(args, cwd) {
   // gh() that surfaces the API's own error message instead of null.
   try {
@@ -656,6 +678,24 @@ const TOOLS = [
     },
   },
   {
+    name: "comment_post",
+    description: "Post a top-level PR comment — the channel for verdicts, summaries, and notes that don't belong on a diff line. Issue comments don't thread.",
+    inputSchema: {
+      type: "object", required: ["body"],
+      properties: { body: { type: "string" }, pr: { type: "number", description: "defaults to the current branch's PR" }, repo_path: { type: "string", description: "absolute path to the consuming repo — your workspace root" } },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "comment_delete",
+    description: "Delete a comment — the deleteComments equivalent. kind 'review' for inline diff comments, 'issue' for top-level. Destructive: use sparingly (a retracted finding is better disposed than deleted — the record matters).",
+    inputSchema: {
+      type: "object", required: ["comment_id"],
+      properties: { comment_id: { type: "string" }, kind: { type: "string", enum: ["review", "issue"] }, repo_path: { type: "string", description: "absolute path to the consuming repo — your workspace root" } },
+      additionalProperties: false,
+    },
+  },
+  {
     name: "comment_resolve",
     description: "Resolve a PR review thread via GraphQL. Takes the thread id (PRRT_…), not the comment id.",
     inputSchema: {
@@ -717,6 +757,8 @@ function callTool(name, args) {
     case "comments_pull": return textResult(commentsPull(args.key, args.pr, args.repo_path));
     case "comment_add": return textResult(commentAdd(args.pr, args, args.repo_path));
     case "comment_reply": return textResult(commentReply(args.comment_id, args.body, args.pr, args.repo_path));
+    case "comment_post": return textResult(commentPost(args.body, args.pr, args.repo_path));
+    case "comment_delete": return textResult(commentDelete(args.comment_id, args.kind, args.repo_path));
     case "comment_resolve": return textResult(commentResolve(args.thread_id, args.repo_path));
     case "watch": return textResult(watch(args.key, args.repo_path));
     case "ledger_append": return textResult(ledgerAppend(args.key, args.pr, { verdict: args.verdict, surfaces_verified: args.surfaces_verified, notes: args.notes }, args.repo_path));
