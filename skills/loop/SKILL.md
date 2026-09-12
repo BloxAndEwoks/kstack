@@ -27,6 +27,19 @@ one call and `doctor` reports the wiring (node / git / gh / gh auth) — anythin
 missing gets fixed before the unit starts, because the loop's later stages depend
 on it.
 
+## Step 0.5 — procedure file
+
+- **Repo has a procedure file naming its own build process or router** (its
+  `AGENTS.md` says "work enters through X", or names its own playbooks) →
+  **yield**. Report the repo's router and stop routing — the repo's process runs;
+  kstack's other skills remain callable as a toolbox inside it.
+- **No procedure file at all** → offer to scaffold one from
+  `templates/AGENTS.template.md` (repo profile: commands, machine constraints,
+  verification pointer, merge policy). One offer per repo; decline means proceed
+  without one.
+- **Procedure file exists but names no process** → it parameterizes this loop;
+  proceed.
+
 ## Step 1 — isolate
 
 The unit gets its own branch. In a worktree when the repo or the task benefits from

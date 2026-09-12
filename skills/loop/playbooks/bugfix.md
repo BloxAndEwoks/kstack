@@ -14,7 +14,8 @@ gone — not a plausible-looking diff.
 3. **Fix minimally.** The smallest change that removes the mechanism. If the root
    cause is structural and the task is bigger than the fix, surface that — a real
    finding beats a buried one.
-4. **Regression test.** Written before or with the fix, at the public surface.
+4. **Regression test.** Written before or with the fix, at the public surface —
+   and proven to fail on the unfixed code. Per `../references/testing.md`.
 5. **Verify via `/kstack:verify`.** The check suite plus re-driving the
    reproduction path on the real surface — the bug is fixed when the surface says
    so.

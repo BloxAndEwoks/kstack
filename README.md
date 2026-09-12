@@ -4,6 +4,9 @@ The bookended PR loop, portable to any agent host that reads `SKILL.md`.
 
 **`task → worktree → commits → PR → normalized review → merge-ready handoff`**
 
+In a repo with its own process file and router, `loop` yields — the repo's
+process runs, and kstack's skills remain available as a toolbox inside it.
+
 Devin's cloud sessions work this way: an isolated environment, a PR as the output
 artifact, an independent review pass, and the owner merges. This plugin reproduces
 that loop as skills + an MCP server, so the same discipline runs in Devin CLI,
@@ -48,6 +51,8 @@ and `.cursor-plugin/` manifests cover the native formats — Codex picks up `ski
 | `/kstack:learn` | Durable learning capture to the repo's rules/docs/skills |
 | `agents/reviewer` | Non-author reviewer subagent profile (local hosts) |
 | `kstack` MCP server | `session_context` + the findings store for any harness |
+| `loop/references/testing.md` | Testing doctrine — behavior-first, the AI failure modes, suite health, perf-testing rules; cited by playbooks, the reviewer, and the repo template |
+| `templates/AGENTS.template.md` | Minimal repo profile for repos without one — `loop` offers it once, only when no procedure file exists |
 
 ## The QA layer
 

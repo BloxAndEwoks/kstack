@@ -49,6 +49,10 @@ A security claim without a reachable path is a `flag`/`investigate`, not a bug.
   this unit touched. A drive that contradicts the author's Verification section
   is the highest-value finding there is. If the contract can't drive the changed
   surface, say so explicitly in the verdict — "inconclusive" is not a pass.
+- **Test changes are reviewable code.** Check them against the failure modes in
+  `skills/loop/references/testing.md`: mirror tests, mock-overfitting, vacuous
+  assertions, happy-path-only, snapshot reflexes, isolation leaks, unexplained
+  skips. A test that can't name the diff that would fail it is itself a finding.
 - Anchor every finding: `path`, `start_line`, `end_line`, `side`. No orphan
   opinions.
 - Every finding: *what* is wrong, *why it matters*, `confidence`, and

@@ -83,6 +83,19 @@ function loadStore(key) {
 
 function saveStore(key, store) {
   writeFileSync(storePath(key), JSON.stringify(store, null, 2) + "\n");
+  // The store defaults to local-only: exclude it per-checkout via
+  // .git/info/exclude without touching the repo's .gitignore.
+  try {
+    const gitDir = git(["rev-parse", "--git-dir"]);
+    if (gitDir) {
+      const root = git(["rev-parse", "--show-toplevel"]);
+      const excludePath = join(root, gitDir, "info", "exclude");
+      const existing = existsSync(excludePath) ? readFileSync(excludePath, "utf8") : "";
+      if (!existing.split("\n").some(l => l.trim() === ".kstack/")) {
+        writeFileSync(excludePath, existing.replace(/\n?$/, "\n") + ".kstack/\n");
+      }
+    }
+  } catch { /* non-fatal: store still works, just not auto-excluded */ }
 }
 
 const KINDS = ["bug", "security", "flag"];

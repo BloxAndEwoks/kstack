@@ -11,8 +11,9 @@ two units.
    fork is genuinely empirical (behavior, timing, output you could observe), settle
    it with a throwaway probe rather than asking the user.
 2. **Test first where the repo has tests.** A failing test that names the behavior,
-   then the implementation. Behavior-level assertions via public APIs; no
-   tautological tests that pin internals.
+   then the implementation — per `../references/testing.md`. Behavior-level
+   assertions via public APIs; every new test must be able to name the diff that
+   would fail it.
 3. **Build in commits.** One commit per coherent checkpoint. Reversible steps can
    proceed without asking; pause on irreversible writes.
 4. **Verify via `/kstack:verify`.** The check suite is the floor; the seat is
