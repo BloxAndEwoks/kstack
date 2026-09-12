@@ -1,6 +1,6 @@
 ---
 name: merge
-description: Merge a unit's topic branch into its base branch locally — the worktree-level merge. For landing a PR on the remote, use land. Use on "merge this into main locally", "bring the work back".
+description: Merge a unit's branch into its base locally (the worktree-level merge). For landing a PR on the remote, use land.
 ---
 
 # Merge (local)

@@ -1,6 +1,6 @@
 ---
 name: review-loop
-description: Normalize every review source on a PR — Devin Review, CodeRabbit, bugbots, human comments, the local review pass — into the finding schema, then drive each finding to a disposition (fix + cite SHA, refute with evidence, defer with a named trigger). Use when review comments land, when the user submits feedback, or before land.
+description: Normalize every review source on a PR into findings and drive each to a disposition. Use when review comments land, on submitted feedback, or before land.
 ---
 
 # Review loop — findings to dispositions

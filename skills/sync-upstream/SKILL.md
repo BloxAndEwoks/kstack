@@ -1,6 +1,6 @@
 ---
 name: sync-upstream
-description: Rebase a stale session branch onto the latest upstream. Use when the base branch has moved significantly and the unit must catch up — upstream wins every conflict; session work adapts to fit.
+description: Rebase a stale session branch onto latest upstream — upstream wins conflicts, session work adapts. Use when the base has moved significantly.
 ---
 
 # Sync upstream

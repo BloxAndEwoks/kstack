@@ -1,6 +1,6 @@
 ---
 name: review
-description: Run the independent review pass over the unit's diff — the local equivalent of Devin Review. Emits normalized findings (bug / security / flag with severities) into the review store and, where the host allows, a non-author reviewer subagent. Use after open-pr, on any "review this", and before land.
+description: Run the independent non-author review pass over the unit's diff — normalized findings plus a verdict. Use after open-pr, before land, or on 'review this'.
 ---
 
 # Review — the independent pass

@@ -1,6 +1,6 @@
 ---
 name: learn
-description: Capture a durable repository learning when one is discovered — a recurring pattern, a non-obvious pitfall, an architectural constraint, a correction that generalizes. Use on "learn!", "remember this", or when a discovery would save future sessions real time.
+description: Record a durable repo learning — a pattern, pitfall, or constraint future sessions need. Use on 'learn!' or 'remember this'.
 ---
 
 # Learn — the capture step

@@ -1,6 +1,6 @@
 ---
 name: doctor
-description: Diagnose kstack wiring — the entry point when the MCP server is down or unreachable. Runs the CLI doctor, reports what's missing (node, git, gh, gh auth, repo, PR access), and gives the fix for each. Invoke on "check kstack", "kstack broken", or when any kstack MCP tool call fails.
+description: Diagnose kstack wiring — node, git, gh auth, repo, PR access. Use when a kstack MCP call fails or on 'check kstack'.
 ---
 
 # Doctor — diagnose kstack wiring when the MCP layer may be down

@@ -1,6 +1,6 @@
 ---
 name: run-commands
-description: Set up or update run commands for agent sessions — the tasks that appear in session Run buttons and auto-run on worktree creation. Use on "set up run commands", "add a dev command", or when a worktree needs a setup step.
+description: Set up agent run commands — the tasks in session Run buttons and worktree-creation hooks. Use on 'set up run commands' or a worktree setup need.
 ---
 
 # Run commands

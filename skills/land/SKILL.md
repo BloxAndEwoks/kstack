@@ -1,6 +1,6 @@
 ---
 name: land
-description: The merge-readiness gate and owner handoff for a PR. Checks green, findings disposed, verdict posted — then the owner merges. Never merges autonomously unless the repo's own rules say the agent may.
+description: Check a PR's merge readiness — checks green, findings disposed, verdict posted — then hand off to the owner. Never merges autonomously.
 ---
 
 # Land — merge-readiness, then the owner's act

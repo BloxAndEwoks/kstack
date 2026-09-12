@@ -1,6 +1,6 @@
 ---
 name: open-pr
-description: Open a pull request for the current unit's branch. Use when a unit's work is built and verified and it is time to make it the record. Covers draft PRs via --draft.
+description: Open a pull request for the unit's branch once work is built and verified. Supports drafts.
 ---
 
 # Open a PR

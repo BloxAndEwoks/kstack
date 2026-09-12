@@ -1,6 +1,6 @@
 ---
 name: unit
-description: Route a task into the bookended PR loop. Invoke at the start of any task meant to end as a PR — features, fixes, perf work, docs, chores, investigations. Captures BASE, opens the worktree, matches a playbook, and carries the task through review to a merge-ready handoff. Do not invoke for casual questions or tasks with no code artifact.
+description: Route a task into the bookended PR loop — captures BASE, isolates, matches a playbook, carries it to a merge-ready PR. Use for any task meant to end as a PR.
 ---
 
 # unit — the bookend router

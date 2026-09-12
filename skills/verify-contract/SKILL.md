@@ -1,6 +1,6 @@
 ---
 name: verify-contract
-description: Execute the repo's verification contract — discover how this repo verifies (its verify-* skill, VERIFY.md, CI workflows, build tooling), run the check suite, and drive the changed behavior on the real surface. Sits in two seats — before design (current behavior) and after build (the unit's change). Self-maintaining: bootstraps the contract when absent, health-checks it when present.
+description: Run the repo's verification contract — check suite plus driving the changed surface on the real path; bootstraps the contract when absent. Use before design and after build.
 ---
 
 # Verify — the verification contract, run and maintained at the point of use
