@@ -847,7 +847,9 @@ if (process.argv.includes("--watch")) {
     if (w.new_comments?.length) bits.push(`${w.new_comments.length} new PR comment(s)`);
     if (w.newly_failing_checks?.length) bits.push(`newly failing checks: ${w.newly_failing_checks.join(", ")}`);
     if (w.pending_findings) bits.push(`${w.pending_findings} pending finding(s)`);
-    if (bits.length) process.stdout.write(`[kstack watch] PR #${w.pr}: ${bits.join("; ")} — consider /kstack:review-loop or /kstack:fix-ci\n`);
+    if (bits.length) process.stdout.write(JSON.stringify({
+      hookSpecificOutput: { hookEventName: "Stop", additionalContext: `[kstack watch] PR #${w.pr}: ${bits.join("; ")} — consider /kstack:review-loop or /kstack:fix-ci` },
+    }) + "\n");
   } catch { /* non-fatal for hooks */ }
   process.exit(0);
 }
@@ -861,9 +863,12 @@ if (process.argv.includes("--doctor")) {
 if (process.argv.includes("--print-context")) {
   const ctx = sessionContext();
   if (ctx.error) process.exit(0); // non-fatal for hooks
-  process.stdout.write(
-    `[kstack] repo=${ctx.repo_root} branch=${ctx.branch ?? "(detached)"} base=${ctx.base_branch}@${(ctx.base_sha ?? "").slice(0, 8)} head=${(ctx.head_sha ?? "").slice(0, 8)} dirty=${ctx.dirty.length} pr=${ctx.pr ? `#${ctx.pr.number}` : "none"}\n`
-  );
+  const line = `[kstack] repo=${ctx.repo_root} branch=${ctx.branch ?? "(detached)"} base=${ctx.base_branch}@${(ctx.base_sha ?? "").slice(0, 8)} head=${(ctx.head_sha ?? "").slice(0, 8)} dirty=${ctx.dirty.length} pr=${ctx.pr ? `#${ctx.pr.number}` : "none"}`;
+  // Hook output must be the hookSpecificOutput envelope to reach the agent's
+  // context — plain stdout is not injected.
+  process.stdout.write(JSON.stringify({
+    hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: line },
+  }) + "\n");
   process.exit(0);
 }
 
