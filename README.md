@@ -26,8 +26,9 @@ devin plugins install ~/Documents/kstack
 ```
 
 Agent Plugins 1.0.0 root manifest (`plugin.json`) is present, so any spec-compliant
-host loads it the same way. `.devin-plugin/` and `.claude-plugin/` manifests cover
-the native formats.
+host loads it the same way. `.devin-plugin/`, `.claude-plugin/`, `.codex-plugin/`,
+and `.cursor-plugin/` manifests cover the native formats — Codex picks up `skills`,
+`hooks`, `mcpServers`, and the marketplace `interface` block from its manifest.
 
 ## The surface
 
@@ -39,6 +40,7 @@ the native formats.
 | `/kstack:open-pr` `/kstack:update-pr` | PR open/update with the Summary + Verification body contract |
 | `/kstack:review` | The independent review pass — Devin Review's taxonomy locally |
 | `/kstack:review-loop` | Normalizes every review source into findings; dispositions each |
+| `/kstack:verify` | The verification contract — discovers how the repo verifies (verify-* skill → VERIFY.md → CI → tooling), drives the real surface, writes back what it learned |
 | `/kstack:fix-ci` | Failed-check triage: real failure vs infra flake vs stale |
 | `/kstack:sync` `/kstack:sync-upstream` | Upstream sync/publish; upstream-wins rebases |
 | `/kstack:merge` `/kstack:land` | Local merge; merge-readiness gate + owner handoff |

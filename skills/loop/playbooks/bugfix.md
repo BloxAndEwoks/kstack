@@ -15,7 +15,9 @@ gone — not a plausible-looking diff.
    cause is structural and the task is bigger than the fix, surface that — a real
    finding beats a buried one.
 4. **Regression test.** Written before or with the fix, at the public surface.
-5. **Verify.** Repo checks plus re-driving the reproduction path on the real surface.
+5. **Verify via `/kstack:verify`.** The check suite plus re-driving the
+   reproduction path on the real surface — the bug is fixed when the surface says
+   so.
 6. **`/kstack:open-pr`** → **`/kstack:review`** → **`/kstack:review-loop`** →
    **`/kstack:fix-ci`** as needed → **`/kstack:land`**.
 

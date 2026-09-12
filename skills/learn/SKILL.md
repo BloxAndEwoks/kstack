@@ -22,11 +22,14 @@ In order of preference:
 1. **The repo's procedure file** (`AGENTS.md` or equivalent) — for rules every
    session must know. Constraints, commands, environment facts that the code does
    not show.
-2. **A repo doc** — for facts, decisions, measurements. Follow the repo's doc
+2. **The verification contract** (`.kstack/verify.md` or the repo's `VERIFY.md`) —
+   for anything about *how to verify*: launch commands, surface entry points, env
+   vars, the smoke order. This is the local equivalent of cloud Knowledge.
+3. **A repo doc** — for facts, decisions, measurements. Follow the repo's doc
    spine conventions.
-3. **A repo skill** (`.devin/skills/<name>/SKILL.md`, `.github/skills/`, or
+4. **A repo skill** (`.devin/skills/<name>/SKILL.md`, `.github/skills/`, or
    `.agents/skills/` per host) — for a multi-step procedure worth invoking by name.
-4. **User-level rules** (`~/.config/devin/` or the host's global config) — only for
+5. **User-level rules** (`~/.config/devin/` or the host's global config) — only for
    learnings that genuinely apply to every repo.
 
 ## What a good learning looks like

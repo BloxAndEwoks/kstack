@@ -9,8 +9,8 @@ Prose artifacts: documentation, comments, READMEs, ADRs, runbooks. No behavior c
 3. **Facts, decisions, or pointers — not procedure duplication.** Document what the
    code cannot show: why, not what. Where the repo declares a single home for build
    procedure, docs point to it rather than restating it.
-4. **Verify the claims.** Commands in docs get run once. Links and file references
-   get checked. A doc that describes behavior the code no longer has is a defect,
+4. **Verify the claims via `/kstack:verify` where applicable.** Commands in docs
+   get run once. Links and file references get checked. A doc that describes behavior the code no longer has is a defect,
    not documentation.
 5. **`/kstack:open-pr`** → **`/kstack:review`** → **`/kstack:review-loop`** →
    **`/kstack:fix-ci`** as needed → **`/kstack:land`**.
