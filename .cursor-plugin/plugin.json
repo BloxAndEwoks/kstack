@@ -1,17 +1,26 @@
 {
   "name": "kstack",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "The bookended PR loop, portable: task -> worktree -> commits -> PR -> normalized review -> merge-ready handoff. Router + playbooks + the QA finding protocol, plus an MCP server that gives any agent the review-state tools the cloud harness has.",
-  "author": { "name": "keivan" },
+  "author": {
+    "name": "keivan"
+  },
   "license": "MIT",
-  "keywords": ["pr-loop", "review", "agent-workflow", "qa"],
+  "keywords": [
+    "pr-loop",
+    "review",
+    "agent-workflow",
+    "qa"
+  ],
   "repository": "https://github.com/BloxAndEwoks/kstack",
   "hooks": "./hooks/cursor-hooks.json",
   "mcpServers": {
     "kstack": {
       "command": "/bin/sh",
-      "args": ["./mcp/run.sh"],
-      "cwd": "${PLUGIN_ROOT}"
+      "args": [
+        "${CURSOR_PLUGIN_ROOT}/mcp/run.sh"
+      ],
+      "cwd": "${CURSOR_PLUGIN_ROOT}"
     }
   }
 }

@@ -88,10 +88,11 @@ Devin: `${PLUGIN_ROOT}`).
 - **Claude Code** — `claude plugin validate` passes; session-level loading via
   `claude --plugin-dir <path>` (needs a signed-in CLI).
 - **Devin** — `devin plugins install <path>` once authenticated.
-- **Cursor** — `.cursor-plugin` launches `/bin/sh ./mcp/run.sh` with `cwd`
-  `${PLUGIN_ROOT}`. A Dock-launched Cursor has a stripped PATH (`spawn node ENOENT`),
-  so the manifest must not use bare `node`. `mcp/run.sh` finds Node and puts
-  Homebrew/nvm/fnm on PATH before starting `review-state.mjs`.
+- **Cursor** — `.cursor-plugin` launches `/bin/sh` on
+  `${CURSOR_PLUGIN_ROOT}/mcp/run.sh`. Cursor substitutes `CURSOR_PLUGIN_ROOT`
+  and `CLAUDE_PLUGIN_ROOT` only; a literal `${PLUGIN_ROOT}` is not a directory,
+  and `spawn` then reports ENOENT for the command. `mcp/run.sh` finds Node
+  when the GUI PATH does not include it.
 
 ## Invoke
 
@@ -151,10 +152,11 @@ disposition with evidence posted on its own thread; nothing pending at `land`.
 Codex, and Devin spawn `node` on the host's path convention (Codex: `cwd: "."`
 plus a relative arg; Claude: `${CLAUDE_PLUGIN_ROOT}`; Devin: `${PLUGIN_ROOT}`).
 They inherit a shell PATH, and they don't show an MCP connection status.
-Cursor does, and a Dock launch's PATH cannot see `node` (`spawn node ENOENT`),
-so `.cursor-plugin` runs `/bin/sh ./mcp/run.sh` with `cwd` `${PLUGIN_ROOT}`
-(Cursor expands that variable in `cwd` only). The spec `mcp.json` uses the
-same launcher, which finds `node` on PATH when the host already has one.
+Cursor does. Its loader substitutes `${CURSOR_PLUGIN_ROOT}` in the MCP
+command, args, and cwd, and does not substitute `${PLUGIN_ROOT}`. The Cursor
+manifest runs `/bin/sh ${CURSOR_PLUGIN_ROOT}/mcp/run.sh` so a Dock launch
+whose PATH has no `node` still starts. The spec `mcp.json` keeps
+`${PLUGIN_ROOT}` for hosts that expand that name.
 Plugin MCP servers spawn with `cwd` = plugin root, so every tool also accepts
 a `path` argument (the agent's workspace) and falls back
 through `DEVIN_PROJECT_DIR` → `CLAUDE_PROJECT_DIR` → `CODEX_PROJECT_ROOT` →

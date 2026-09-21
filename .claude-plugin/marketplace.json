@@ -8,7 +8,7 @@
       "name": "kstack",
       "source": "./",
       "description": "The bookended PR loop: task -> worktree -> commits -> PR -> normalized review -> merge-ready handoff.",
-      "version": "1.0.4"
+      "version": "1.0.5"
     }
   ],
   "description": "The bookended PR loop plugin marketplace"
