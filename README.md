@@ -40,8 +40,10 @@ comments, watch, and merge-readiness lose their teeth.
   # Claude Code: claude mcp add kstack -- node <path>/mcp/review-state.mjs
   # Codex: mcp_servers in ~/.codex/config.toml — [mcp_servers.kstack]
   #        command = "node", args = ["<path>/mcp/review-state.mjs"]
+  # Cursor is the exception: its GUI PATH has no node, so the manifest
+  # uses /bin/sh <path>/mcp/run.sh rather than a manual `node` entry.
   ```
-  Verify any time: `node <path>/mcp/review-state.mjs --doctor` prints what's
+  Verify any time: `/bin/sh <path>/mcp/run.sh --doctor` prints what's
   wired and what's missing, with fix guidance. The same check exists three
   ways: the CLI flag (works even when the server won't start), the `doctor`
   MCP tool, and the `/kstack:doctor` skill — the entry point for when the MCP
@@ -86,8 +88,10 @@ Devin: `${PLUGIN_ROOT}`).
 - **Claude Code** — `claude plugin validate` passes; session-level loading via
   `claude --plugin-dir <path>` (needs a signed-in CLI).
 - **Devin** — `devin plugins install <path>` once authenticated.
-- **Cursor** — `.cursor-plugin` is IDE-side; the reliable path is the always-on
-  `AGENTS.md` + a manual `mcp`/`--add-mcp` entry for the server.
+- **Cursor** — `.cursor-plugin` launches `/bin/sh ./mcp/run.sh` with `cwd`
+  `${PLUGIN_ROOT}`. A Dock-launched Cursor has a stripped PATH (`spawn node ENOENT`),
+  so the manifest must not use bare `node`. `mcp/run.sh` finds Node and puts
+  Homebrew/nvm/fnm on PATH before starting `review-state.mjs`.
 
 ## Invoke
 
@@ -143,11 +147,16 @@ disposition with evidence posted on its own thread; nothing pending at `land`.
 
 ## The MCP server
 
-`mcp/review-state.mjs` is a zero-dependency Node stdio server. Declared inline in
-each manifest using that host's own mechanism — `cwd: "."` + relative args on
-Devin and Codex, `${CLAUDE_PLUGIN_ROOT}` on Claude Code, `${PLUGIN_ROOT}` on
-Agent-Plugins-spec hosts. Plugin MCP servers spawn with `cwd` = plugin root, so
-every tool also accepts a `path` argument (the agent's workspace) and falls back
+`mcp/review-state.mjs` is a zero-dependency Node stdio server. Claude Code,
+Codex, and Devin spawn `node` on the host's path convention (Codex: `cwd: "."`
+plus a relative arg; Claude: `${CLAUDE_PLUGIN_ROOT}`; Devin: `${PLUGIN_ROOT}`).
+They inherit a shell PATH, and they don't show an MCP connection status.
+Cursor does, and a Dock launch's PATH cannot see `node` (`spawn node ENOENT`),
+so `.cursor-plugin` runs `/bin/sh ./mcp/run.sh` with `cwd` `${PLUGIN_ROOT}`
+(Cursor expands that variable in `cwd` only). The spec `mcp.json` uses the
+same launcher, which finds `node` on PATH when the host already has one.
+Plugin MCP servers spawn with `cwd` = plugin root, so every tool also accepts
+a `path` argument (the agent's workspace) and falls back
 through `DEVIN_PROJECT_DIR` → `CLAUDE_PROJECT_DIR` → `CODEX_PROJECT_ROOT` →
 process cwd. Tools:
 
@@ -179,5 +188,5 @@ conversations, `AGENTS.md` = distilled lessons** (via `learn`). Live working set
 mandated; see `skills/unit/references/artifacts.md`.
 
 Hosts without plugin MCP: the skills fall back to `gh` + the same store files —
-the store is plain JSON, no tool required. `node mcp/review-state.mjs --doctor`
+the store is plain JSON, no tool required. `/bin/sh mcp/run.sh --doctor`
 reports the wiring on any host.

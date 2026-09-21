@@ -3,10 +3,10 @@
   "mcpServers": {
     "kstack": {
       "type": "stdio",
-      "command": "sh",
+      "command": "/bin/sh",
       "args": [
         "-c",
-        "exec node \"${PLUGIN_ROOT:-.}/mcp/review-state.mjs\""
+        "exec \"${PLUGIN_ROOT:-.}/mcp/run.sh\""
       ],
       "cwd": "${PLUGIN_ROOT}"
     }

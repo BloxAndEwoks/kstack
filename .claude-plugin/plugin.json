@@ -1,6 +1,6 @@
 {
   "name": "kstack",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "The bookended PR loop, portable: task -> worktree -> commits -> PR -> normalized review -> merge-ready handoff. Router + playbooks + the QA finding protocol, plus an MCP server that gives any agent the review-state tools the cloud harness has.",
   "author": {
     "name": "keivan"

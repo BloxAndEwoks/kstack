@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "P=\"${CURSOR_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-.}}}\"; node \"$P/mcp/review-state.mjs\" --print-context 2>/dev/null || true"
+            "command": "P=\"${CURSOR_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-.}}}\"; /bin/sh \"$P/mcp/run.sh\" --print-context 2>/dev/null || true"
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "P=\"${CURSOR_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-.}}}\"; node \"$P/mcp/review-state.mjs\" --watch 2>/dev/null || true"
+            "command": "P=\"${CURSOR_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-.}}}\"; /bin/sh \"$P/mcp/run.sh\" --watch 2>/dev/null || true"
           }
         ]
       }

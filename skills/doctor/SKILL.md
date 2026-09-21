@@ -16,7 +16,7 @@ directory. Locate it (the plugin install path, or this skill's own directory
 two levels up) and run:
 
 ```bash
-node <kstack-plugin>/mcp/review-state.mjs --doctor
+/bin/sh <kstack-plugin>/mcp/run.sh --doctor
 ```
 
 The output is JSON: `checks` (node, git, gh CLI, gh auth, repo, PR access),
