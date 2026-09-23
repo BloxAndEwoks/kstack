@@ -11,7 +11,8 @@ Dependencies, configuration, tooling, cleanup — work with no intended behavior
    needs test changes is part feature — name it.
 4. **Verify via `/kstack:verify-contract`.** The check suite, plus any surface the chore
    actually touches — a build change gets a build; a CI change gets a run.
-5. **`/kstack:open-pr`** → **`/kstack:review`** → **`/kstack:review-loop`** →
+5. **`/kstack:review`** → **`/kstack:review-loop`** → **`/kstack:open-pr`** →
+   **`/kstack:review-loop`** →
    **`/kstack:fix-ci`** as needed → **`/kstack:land`**.
 
 **Reply:** what changed, the blast radius checked, evidence nothing else moved.

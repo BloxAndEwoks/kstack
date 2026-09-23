@@ -19,9 +19,11 @@ two units.
 4. **Verify via `/kstack:verify-contract`.** The check suite is the floor; the seat is
    driving the changed behavior on the real surface — the app, the CLI, the
    endpoint — not a proxy.
-5. **`/kstack:open-pr`** — write the PR against BASE.
-6. **`/kstack:review`** — the independent pass over `BASE..HEAD`.
-7. **`/kstack:review-loop`** — normalize and dispose every finding the PR collects.
+5. **`/kstack:review`** — the independent pass over `BASE..HEAD`, before the PR.
+6. **`/kstack:review-loop`** — settle its findings; redesign where a simpler
+   shape removes a defect.
+7. **`/kstack:open-pr`** — write the PR against BASE, with the review in its body,
+   then `review-loop` again for every comment the PR collects.
 8. **`/kstack:fix-ci`** on any failed check.
 9. **`/kstack:land`** — report merge-readiness; the owner merges.
 

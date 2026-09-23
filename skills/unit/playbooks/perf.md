@@ -14,7 +14,8 @@ baseline, with the measurement attached.
    PR Verification section. A perf claim without numbers is a story.
 5. **Regression guard.** If the repo has a perf-sensitive path, the test or benchmark
    that would catch a regression ships with the change.
-6. **`/kstack:open-pr`** → **`/kstack:review`** → **`/kstack:review-loop`** →
+6. **`/kstack:review`** → **`/kstack:review-loop`** → **`/kstack:open-pr`** →
+   **`/kstack:review-loop`** →
    **`/kstack:fix-ci`** as needed → **`/kstack:land`**.
 
 **Reply:** baseline, mechanism found, delta measured, the numbers.

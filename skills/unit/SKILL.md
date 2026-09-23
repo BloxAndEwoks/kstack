@@ -128,7 +128,7 @@ match cleanly, use `feature.md` — it is the superset.
 ## Step 3 — run the playbook
 
 Open the matched playbook and follow its steps. Every playbook ends the same way:
-`open-pr` → `review` → `review-loop` → `fix-ci` as needed → `land`.
+`review` → `review-loop` → `open-pr` → `review-loop` → `fix-ci` as needed → `land`.
 
 ## What the router deliberately does not do
 

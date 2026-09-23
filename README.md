@@ -2,7 +2,7 @@
 
 The bookended PR loop, portable to any agent host that reads `SKILL.md`.
 
-**`task → worktree → commits → PR → normalized review → merge-ready handoff`**
+**`task → worktree → commits → review → PR → merge-ready handoff`**
 
 In a repo with its own process file and router, `loop` yields — the repo's
 process runs, and kstack's skills remain available as a toolbox inside it.
@@ -124,7 +124,7 @@ plugin explicitly.
 | `loop/playbooks/` | `feature` `bugfix` `perf` `docs` `chore` `investigate` `stack` |
 | `/kstack:commit` | Convention-matched commits |
 | `/kstack:open-pr` `/kstack:update-pr` | PR open/update with the Summary + Verification body contract |
-| `/kstack:review` | The independent review pass — Devin Review's taxonomy locally |
+| `/kstack:review` | The independent review pass before the PR — Devin Review's taxonomy plus a simplify lens |
 | `/kstack:review-loop` | Normalizes every review source into findings; dispositions each |
 | `/kstack:verify-contract` | The verification contract — two seats (pre-design look, post-build drive), self-maintaining at the point of use: bootstraps when absent, health-checks when present, drifts fork to recipe-fix or product-finding |
 | `/kstack:fix-ci` | Failed-check triage: real failure vs infra flake vs stale |
@@ -166,6 +166,8 @@ process cwd. Tools:
 - `doctor` — wiring check (node, git, gh, gh auth) with fix guidance
 - `finding_add` / `finding_list` / `finding_dispose` / `review_state` — the
   normalized findings store at `.kstack/review/<key>.json` in the consuming repo
+- `review_summary` — renders the findings store as the PR body's `## Review`
+  section, so the pre-PR review is recorded on the PR
 - `comments_pull` — fetch + normalize every PR comment through the adapters *in
   code*, folding `✅ Resolved` replies into dispositions
 - `comment_add` / `comment_reply` / `comment_post` / `comment_resolve` /

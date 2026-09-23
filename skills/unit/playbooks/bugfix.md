@@ -19,7 +19,8 @@ gone — not a plausible-looking diff.
 5. **Verify via `/kstack:verify-contract`.** The check suite plus re-driving the
    reproduction path on the real surface — the bug is fixed when the surface says
    so.
-6. **`/kstack:open-pr`** → **`/kstack:review`** → **`/kstack:review-loop`** →
+6. **`/kstack:review`** → **`/kstack:review-loop`** → **`/kstack:open-pr`** →
+   **`/kstack:review-loop`** →
    **`/kstack:fix-ci`** as needed → **`/kstack:land`**.
 
 **Reply:** the reproduction path, the mechanism, the fix, the evidence.

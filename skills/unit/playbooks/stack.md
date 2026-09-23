@@ -9,9 +9,10 @@ below it.
    goal; the stack's value is that each PR reviews independently.
 2. **Branch chain.** `unit-1` off main, `unit-2` off `unit-1`, and so on. Each unit
    runs its own playbook's steps on its own branch.
-3. **Open bottom-up.** `open-pr` on unit 1 (base `main`), then unit 2 (base unit-1's
+3. **Review, then open bottom-up.** Each unit takes its first `review` round
+   before its PR opens. `open-pr` on unit 1 (base `main`), then unit 2 (base unit-1's
    branch), and so on — each PR's diff shows only its own increment.
-4. **Review per PR.** `review` + `review-loop` on each unit. A finding on unit N that
+4. **Review per PR.** `review-loop` on each PR's comments, judged against the fix delta. A finding on unit N that
    rewrites unit N-1's ground goes back down the stack — fix the layer that owns it,
    not the layer that trips on it.
 

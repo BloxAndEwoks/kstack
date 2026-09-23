@@ -8,9 +8,9 @@ wire protocol so nothing downstream needs to know which bot (or human) spoke.
 
 ```jsonc
 {
-  "id": "BUG_<source-job>_<seq>",          // stable id; prefix by kind
+  "id": "BUG_<source-job>_<seq>",          // stable id; prefix by kind (BUG, SEC, FLG, SMP)
   "source": "devin-review | coderabbit | bugbot | human | self-review",
-  "kind": "bug | security | flag",
+  "kind": "bug | security | flag | simplify",
   "severity": "<per kind, below>",
   "confidence": "high | medium | low",      // reviewer's own confidence
   "cwe": "CWE-89",                          // security findings only, when known
@@ -37,6 +37,7 @@ wire protocol so nothing downstream needs to know which bot (or human) spoke.
 | `bug` | `severe`, `non-severe` | Actionable errors. `severe` = high-confidence defect reachable today, fix before merge. `non-severe` = still worth review. |
 | `security` | `critical`, `high`, `medium`, `low` | Vulnerabilities in the CWE categories: injection, broken auth/access control, secrets exposure, SSRF/path traversal, insecure deserialization, missing input validation. Always carries `cwe` when classifiable and a reachable-path argument. |
 | `flag` | `investigate`, `note` | `investigate` = potential issue worth a human look. `note` = informational, no action required. |
+| `simplify` | `required`, `note` | A cleaner architecture for the same behavior. `required` = complexity this diff adds when a cleaner shape is available; fixed or refuted before land. `note` = existing debt, deferred with a named trigger. Never fails a pass on its own. |
 
 Severity emoji on GitHub posts, matching Devin Review's convention:
 `severe`/`critical`/`high` → 🔴 (bug) / 🟥 (security); `non-severe`/`medium` →

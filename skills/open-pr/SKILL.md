@@ -1,6 +1,6 @@
 ---
 name: open-pr
-description: Open a pull request for the unit's branch once work is built and verified. Supports drafts.
+description: Open a pull request for the unit's branch once it is built, verified and through its first review round. Supports drafts.
 ---
 
 # Open a PR
@@ -14,13 +14,15 @@ who was not in the session.
    (checks + the surface drive). If it hasn't run yet — run it now. Re-run the
    check suite only if the head moved since the last verify; do not duplicate
    the drive.
-2. **Commit everything.** Uncommitted changes go through `/kstack:commit` first.
-3. **Read the whole diff.** `git log <base>..HEAD --oneline` and `git diff
+2. **Review first.** Round one of `/kstack:review` runs before the PR, and
+   `review-loop` settles its findings, so external reviewers see the final shape.
+3. **Commit everything.** Uncommitted changes go through `/kstack:commit` first.
+4. **Read the whole diff.** `git log <base>..HEAD --oneline` and `git diff
    <base>...HEAD` — where `<base>` is the unit's BASE, not the branch point GitHub
    guesses. If the diff contains anything you did not intend, it does not ship.
-4. **Title.** Short, area-prefixed, follows the repo's recent PR titles (`git log`
+5. **Title.** Short, area-prefixed, follows the repo's recent PR titles (`git log`
    on merge commits shows the convention).
-5. **Body contract:**
+6. **Body contract:**
    ```markdown
    ## Summary
    <what changed and why — the decision-level story, not the file list>
@@ -28,15 +30,19 @@ who was not in the session.
    ## Verification
    <each check: the real path exercised and its outcome, not just command names>
 
+   ## Review
+   <review_summary output — the pre-PR review's findings, dispositions, SHAs
+   and triggers, rendered from the store>
+
    ## Notes
-   <known gaps, deferred items with named triggers — omit if none>
+   <known gaps not already in Review — omit if none>
    ```
-6. **Create.** Prefer the host's GitHub tooling when it exists (a GitHub MCP server),
+7. **Create.** Prefer the host's GitHub tooling when it exists (a GitHub MCP server),
    otherwise:
    ```bash
    git push -u origin HEAD
    gh pr create --base <base> --title "<title>" --body-file <body>
    ```
    Draft when the unit is real but not review-ready: `gh pr create --draft`.
-7. **Report** the PR URL. If the loop expects an independent review pass, that is
-   `/kstack:review` — it runs now.
+8. **Report** the PR URL. External review comments now go through
+   `/kstack:review-loop`, judged against the fix delta.

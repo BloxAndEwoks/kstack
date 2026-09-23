@@ -12,7 +12,8 @@ Prose artifacts: documentation, comments, READMEs, ADRs, runbooks. No behavior c
 4. **Verify the claims via `/kstack:verify-contract` where applicable.** Commands in docs
    get run once. Links and file references get checked. A doc that describes behavior the code no longer has is a defect,
    not documentation.
-5. **`/kstack:open-pr`** → **`/kstack:review`** → **`/kstack:review-loop`** →
+5. **`/kstack:review`** → **`/kstack:review-loop`** → **`/kstack:open-pr`** →
+   **`/kstack:review-loop`** →
    **`/kstack:fix-ci`** as needed → **`/kstack:land`**.
 
 **Reply:** what was documented, what was verified, open questions the doc surfaced.

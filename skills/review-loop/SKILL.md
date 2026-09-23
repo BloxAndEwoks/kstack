@@ -58,6 +58,15 @@ separates understanding the problem from whack-a-mole:
 - **`missing-guard`** — the design is right and the fact exists; a boundary check
   is absent. The one mechanism where a local fix is correct.
 
+If a simpler shape would remove the finding, it is `wrong-model`: fix it by
+redesigning toward that shape, not by appending a patch. A `simplify` finding
+takes no mechanism — `required` is fixed or refuted with a reason; `note` is
+deferred with a named trigger.
+
+After the PR opens, judge external review comments and later-round findings
+against the fix delta (the reviewer profile's round-scope rule): new ideas about
+code the delta did not touch are `deferred` with a trigger, not reopened work.
+
 Record the mechanism on the finding (`mechanism` field). Then the disposition:
 
 1. **Accept → fix at the mechanism.** The finding reproduces or is plainly right.

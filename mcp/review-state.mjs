@@ -201,11 +201,12 @@ function mutateStore(key, path, fn) {
   }
 }
 
-const KINDS = ["bug", "security", "flag"];
+const KINDS = ["bug", "security", "flag", "simplify"];
 const SEVERITIES = {
   bug: ["severe", "non-severe"],
   security: ["critical", "high", "medium", "low"],
   flag: ["investigate", "note"],
+  simplify: ["required", "note"],
 };
 const MECHANISMS = ["wrong-model", "missing-fact", "missing-guard"];
 const DISPOSITIONS = ["pending", "fixed", "refuted", "deferred", "accepted-risk", "dismissed"];
@@ -227,7 +228,7 @@ function addFinding(key, f, path) {
   if (errors.length) throw new Error(errors.join("; "));
   return mutateStore(key, path, (store) => {
     const seq = String(store.findings.length + 1).padStart(4, "0");
-    const prefix = { bug: "BUG", security: "SEC", flag: "FLG" }[f.kind];
+    const prefix = { bug: "BUG", security: "SEC", flag: "FLG", simplify: "SMP" }[f.kind];
     const finding = {
       id: f.id ?? `${prefix}_${key}_${seq}`,
       source: f.source ?? "self-review",
@@ -422,7 +423,7 @@ function commentAdd(pr, f, path) {
   const cwd = resolveCwd(path);
   const headSha = gh(["pr", "view", String(n), "--json", "headRefOid", "--jq", ".headRefOid"], cwd);
   const marker = { id: f.id, kind: f.kind, severity: f.severity, confidence: f.confidence ?? "medium", based_on_repo_rules: f.based_on_repo_rules ?? false, file_path: f.path, start_line: f.start_line, end_line: f.end_line ?? f.start_line, side: f.side ?? "RIGHT" };
-  const emoji = { bug: { severe: "🔴", "non-severe": "🟡" }, security: { critical: "🟥", high: "🟥", medium: "🟨", low: "🔵" }, flag: { investigate: "🔵", note: "🔵" } }[f.kind]?.[f.severity] ?? "🔵";
+  const emoji = { bug: { severe: "🔴", "non-severe": "🟡" }, security: { critical: "🟥", high: "🟥", medium: "🟨", low: "🔵" }, flag: { investigate: "🔵", note: "🔵" }, simplify: { required: "🟡", note: "🔵" } }[f.kind]?.[f.severity] ?? "🔵";
   const body = `<!-- kstack-finding ${JSON.stringify(marker)} -->\n\n${emoji} **${f.title}**\n\n${f.body ?? ""}${f.remediation ? `\n\nSuggested fix: ${f.remediation}` : ""}`;
   const payload = { body, commit_id: headSha, path: f.path, side: f.side ?? "RIGHT" };
   if (f.start_line && f.end_line && f.end_line !== f.start_line) {
@@ -575,6 +576,32 @@ function doctor(path) {
   return { ok: missing.length === 0, checks, missing, guidance: missing.length ? "install/authenticate the missing pieces; gh CLI is required for PR I/O (brew install gh && gh auth login)" : "fully wired" };
 }
 
+// ---------- review summary ----------
+// The pre-PR review runs before any PR exists, so its record is rendered from
+// the store into the PR body at open-pr — deterministic, no judgment.
+
+function reviewSummary(key, path) {
+  const store = loadStore(key, path);
+  const fs = store.findings;
+  const line = f => `- \`${f.id}\` ${f.title.replace(/\s+/g, " ")}${f.disposition_detail ? ` — ${String(f.disposition_detail).replace(/\s+/g, " ")}` : ""}`;
+  const count = (pred) => fs.filter(pred).length;
+  const out = ["## Review", ""];
+  if (!fs.length) return [...out, "No findings."].join("\n");
+  out.push(`${fs.length} finding${fs.length === 1 ? "" : "s"} · ${count(f => f.mechanism === "wrong-model")} wrong-model · ${count(f => f.disposition === "fixed")} fixed · ${count(f => f.disposition === "deferred")} deferred · ${count(f => f.disposition === "pending")} pending`);
+  const section = (title, pred) => {
+    const rows = fs.filter(pred);
+    if (rows.length) out.push("", `**${title}**`, ...rows.map(line));
+  };
+  section("Pending", f => f.disposition === "pending");
+  for (const m of ["wrong-model", "missing-fact", "missing-guard"])
+    section(`Fixed — ${m}`, f => f.disposition === "fixed" && f.kind !== "simplify" && f.mechanism === m);
+  section("Fixed", f => f.disposition === "fixed" && f.kind !== "simplify" && !f.mechanism);
+  section("Simplified", f => f.disposition === "fixed" && f.kind === "simplify");
+  section("Deferred (named triggers)", f => f.disposition === "deferred");
+  section("Not changed", f => ["refuted", "accepted-risk", "dismissed"].includes(f.disposition));
+  return out.join("\n");
+}
+
 // ---------- MCP tool surface ----------
 
 const TOOLS = [
@@ -593,7 +620,7 @@ const TOOLS = [
         key: { type: "string", description: "PR number or branch name" },
         repo_path: { type: "string", description: "absolute path to the consuming repo — your workspace root" },
         kind: { type: "string", enum: KINDS },
-        severity: { type: "string", description: "bug: severe|non-severe; security: critical|high|medium|low; flag: investigate|note" },
+        severity: { type: "string", description: "bug: severe|non-severe; security: critical|high|medium|low; flag: investigate|note; simplify: required|note" },
         source: { type: "string" }, confidence: { type: "string", enum: ["high", "medium", "low"] },
         cwe: { type: "string" }, category: { type: "string" },
         mechanism: { type: "string", enum: MECHANISMS, description: "wrong-model (redesign) | missing-fact (carry the fact upstream) | missing-guard (local fix correct)" },
@@ -730,6 +757,11 @@ const TOOLS = [
     },
   },
   {
+    name: "review_summary",
+    description: "Render the findings store as the PR body's ## Review section: counts, then findings grouped by disposition and mechanism with their SHAs, triggers and reasons. open-pr uses it so the pre-PR review is recorded on the PR.",
+    inputSchema: { type: "object", required: ["key"], properties: { key: { type: "string" }, repo_path: { type: "string", description: "absolute path to the consuming repo — your workspace root" } }, additionalProperties: false },
+  },
+  {
     name: "doctor",
     description: "Check the wiring: node, git, gh CLI, gh auth, repo context. Run first in any session that will touch a PR — reports exactly what is missing and how to fix it.",
     inputSchema: { type: "object", properties: { repo_path: { type: "string", description: "absolute path to the consuming repo — your workspace root" } }, additionalProperties: false },
@@ -762,6 +794,7 @@ function callTool(name, args) {
     case "comment_resolve": return textResult(commentResolve(args.thread_id, args.repo_path));
     case "watch": return textResult(watch(args.key, args.repo_path));
     case "ledger_append": return textResult(ledgerAppend(args.key, args.pr, { verdict: args.verdict, surfaces_verified: args.surfaces_verified, notes: args.notes }, args.repo_path));
+    case "review_summary": return textResult(reviewSummary(args.key, args.repo_path));
     case "doctor": return textResult(doctor(args.repo_path));
     default: throw new Error(`unknown tool: ${name}`);
   }
@@ -885,6 +918,24 @@ if (process.argv.includes("--self-test")) {
   ledgerAppend("k2", 42, {});
   const rows2 = readFileSync(join(dir, ".kstack", "ledger.jsonl"), "utf8").trim().split("\n");
   t("re-append is a new row (append-only)", rows2.length === 2);
+
+  t("empty store summary", reviewSummary("k3").includes("No findings."));
+  t("rejects simplify/severity mismatch", throws(() => addFinding("k3", { kind: "simplify", severity: "severe", path: "a", title: "x" })));
+  const s1f = addFinding("k3", { kind: "simplify", severity: "required", path: "a.ts", title: "Two readers\nfor one line" });
+  t("simplify id prefixed", s1f.id.startsWith("SMP_"));
+  t("required simplify pending → PASS+NOTES, not FAIL", reviewState("k3").suggested_verdict === "PASS+NOTES");
+  const b1 = addFinding("k3", { kind: "bug", severity: "severe", path: "b.ts", title: "false count", mechanism: "wrong-model" });
+  const n1 = addFinding("k3", { kind: "flag", severity: "note", path: "c.ts", title: "later" });
+  t("summary lists pending", reviewSummary("k3").includes("**Pending**"));
+  disposeFinding("k3", s1f.id, "fixed", "abc1234");
+  disposeFinding("k3", b1.id, "fixed", "def5678: redesigned");
+  disposeFinding("k3", n1.id, "deferred", "when X lands");
+  const sum = reviewSummary("k3");
+  t("summary counts", sum.includes("3 findings · 1 wrong-model · 2 fixed · 1 deferred · 0 pending"));
+  t("summary groups by mechanism", sum.includes("**Fixed — wrong-model**") && sum.includes("def5678: redesigned"));
+  t("summary separates simplifications", sum.includes("**Simplified**") && sum.includes("Two readers for one line — abc1234"));
+  t("summary carries triggers", sum.includes("**Deferred (named triggers)**") && sum.includes("when X lands"));
+  t("summary omits empty sections", !sum.includes("**Pending**") && !sum.includes("**Not changed**"));
 
   process.stdout.write(`self-test: ${pass} passed, ${fail} failed\n`);
   process.exit(fail ? 1 : 0);
