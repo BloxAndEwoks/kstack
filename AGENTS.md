@@ -43,11 +43,14 @@ even when the behavior is right today. The shapes it takes:
 
 - a ref, closure, promise or timer that carries "what happens when X answers";
 - component or local state that shadows a field the model already has;
-- a status worked out from two flags, a count, or another record's status;
+- a lifecycle status that exists only as an inference from flags, counts or
+  another record's status, with no field that records it;
 - an outcome assumed when the request is sent (sent treated as done).
 
 Give each a named field, let the answer arrive as an intent, and give it a test
-cell. This holds for a quick review fix as much as for a build. Put it in every
+cell. Two things are not implicit state: a value derived purely from model
+fields (storing it would give the fact a second home), and a handle that only
+carries mechanism and that no behavior reads (a DOM ref, a cancel handle). This holds for a quick review fix as much as for a build. Put it in every
 builder brief, and ask "where does each fact live?" in every review.
 
 ## Anti-spiral rule

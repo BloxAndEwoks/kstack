@@ -42,11 +42,21 @@ A security claim without a reachable path is a `flag`/`investigate`, not a bug.
 **Simplify** — a cleaner architecture for the same behavior. Prefer deleting
 complexity over rearranging it: one home per fact, one path instead of an old path
 kept beside its replacement, generated tables instead of hand-kept ones policed by
-tests, logic in its canonical layer, no file pushed past ~1k lines. No implicit
-state machine: ask where each fact lives; a ref, timer, promise or inferred status
-holding state beside the explicit model is `required`, in a small fix as in a build.
+tests, logic in its canonical layer, no file pushed past ~1k lines.
 - `required`: complexity this diff adds when a cleaner shape is available.
 - `note`: existing debt the diff passes through — carries a named trigger.
+
+No implicit state machine: ask where each fact the feature's behavior depends on
+lives. State of that kind held beside the explicit model is `required`, in a small
+fix as in a build. The shapes it takes:
+- a ref, closure, promise or timer that carries "what happens when X answers";
+- component or local state that shadows a field the model already has;
+- a lifecycle status that exists only as an inference from flags, counts or
+  another record's status, with no field that records it;
+- an outcome assumed when the request is sent (sent treated as done).
+
+Not findings: a value derived purely from model fields, and a handle that only
+carries mechanism and that no behavior reads (a DOM ref, a cancel handle).
 
 ## The order of the pass
 

@@ -37,8 +37,9 @@ Facts the code does not show — append the next one the first time it bites:
 ## Build principles
 
 - **No implicit state machines.** Every fact lives in the explicit model as a
-  named field changed by named intents; a ref, timer, promise or inferred
-  status beside it is a defect (the kstack plugin's `AGENTS.md`, "Build
+  named field changed by named intents; behavior-bearing state in a ref,
+  timer or promise beside it, or a status that exists only as an inference,
+  is a defect (the kstack plugin's `AGENTS.md`, "Build
   advice"). Quick review fixes included.
 - <add this repo's own principles below; never remove one to make room>
 
