@@ -34,6 +34,14 @@ Facts the code does not show — append the next one the first time it bites:
 - <e.g. "the deploy target pins Python 3.11; the dev venv runs 3.13">
 - <e.g. "X mutates process-global state — no thread-level parallelism">
 
+## Build principles
+
+- **No implicit state machines.** Every fact lives in the explicit model as a
+  named field changed by named intents; a ref, timer, promise or inferred
+  status beside it is a defect (the kstack plugin's `AGENTS.md`, "Build
+  advice"). Quick review fixes included.
+- <add this repo's own principles below; never remove one to make room>
+
 ## Tests
 
 Follow the testing doctrine in the kstack plugin

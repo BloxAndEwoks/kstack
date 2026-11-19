@@ -34,6 +34,22 @@ it does.
 5. `land` writes the durable `.kstack/ledger.jsonl` record, reports
    merge-readiness, and stops. The owner merges.
 
+## Build advice
+
+**No implicit state machines.** Every fact a feature depends on lives in one
+explicit model: a named field, changed by named intents, so that when something
+goes wrong it is clear where. State that lives beside the model is the defect,
+even when the behavior is right today. The shapes it takes:
+
+- a ref, closure, promise or timer that carries "what happens when X answers";
+- component or local state that shadows a field the model already has;
+- a status worked out from two flags, a count, or another record's status;
+- an outcome assumed when the request is sent (sent treated as done).
+
+Give each a named field, let the answer arrive as an intent, and give it a test
+cell. This holds for a quick review fix as much as for a build. Put it in every
+builder brief, and ask "where does each fact live?" in every review.
+
 ## Anti-spiral rule
 
 Review iterates until findings are adequately resolved — the bound is zero

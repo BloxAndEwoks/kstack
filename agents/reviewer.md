@@ -42,7 +42,9 @@ A security claim without a reachable path is a `flag`/`investigate`, not a bug.
 **Simplify** — a cleaner architecture for the same behavior. Prefer deleting
 complexity over rearranging it: one home per fact, one path instead of an old path
 kept beside its replacement, generated tables instead of hand-kept ones policed by
-tests, logic in its canonical layer, no file pushed past ~1k lines.
+tests, logic in its canonical layer, no file pushed past ~1k lines. No implicit
+state machine: ask where each fact lives; a ref, timer, promise or inferred status
+holding state beside the explicit model is `required`, in a small fix as in a build.
 - `required`: complexity this diff adds when a cleaner shape is available.
 - `note`: existing debt the diff passes through — carries a named trigger.
 

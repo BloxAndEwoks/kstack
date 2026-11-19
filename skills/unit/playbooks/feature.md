@@ -7,7 +7,9 @@ two units.
    work on a shipped surface, run `/kstack:verify-contract`'s first seat — a live look at
    current behavior — before designing. Name the
    data shape before writing logic — state machine over scattered booleans, table or
-   registry over branching, typed model over repeated shape assumptions. If a design
+   registry over branching, typed model over repeated shape assumptions. No implicit
+   state machines: every fact gets a named field and named intents in that model
+   (the plugin's `AGENTS.md`, "Build advice"). If a design
    fork is genuinely empirical (behavior, timing, output you could observe), settle
    it with a throwaway probe rather than asking the user.
 2. **Test first where the repo has tests.** A failing test that names the behavior,
